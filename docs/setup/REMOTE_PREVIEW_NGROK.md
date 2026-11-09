@@ -145,7 +145,7 @@ izin aplikasi setelah OAuth edge berhasil.
 ## 5. Buka dari tablet/HP
 
 Buka URL **HTTPS yang benar-benar dicetak startup** pada browser perangkat.
-Login dengan akun Google dalam allowlist, kemudian login ke Kliinik Kelompok B
+Login dengan akun Google dalam allowlist, kemudian login ke QueueB
 seperti biasa. Endpoint REST menjadi `https://DOMAIN/api/v1`; transport Socket.IO
 menjadi WSS pada `https://DOMAIN/socket.io/`. AppConfig memakai origin halaman
 hanya saat kedua flag preview aktif. Tidak ada request API yang diarahkan ke

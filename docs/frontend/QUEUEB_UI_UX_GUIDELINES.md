@@ -1,9 +1,8 @@
-# Kliinik Kelompok B — Compact & Professional UI/UX Design System
+# QueueB — Compact & Professional UI/UX Design System
 
-Panduan mandiri untuk Flutter Kliinik Kelompok B. Ini menjadi acuan seluruh penyempurnaan visual berikutnya. Kebutuhan pengguna, keselamatan operasional, aksesibilitas dan kontrak aplikasi lebih utama daripada mengejar kepadatan atau dekorasi.
+Panduan mandiri untuk Flutter QueueB. Ini menjadi acuan seluruh penyempurnaan visual berikutnya. Kebutuhan pengguna, keselamatan operasional, aksesibilitas dan kontrak aplikasi lebih utama daripada mengejar kepadatan atau dekorasi.
 
-Nama tampilan aktif sejak 4 November 2026 adalah **Kliinik Kelompok B**,
-sesuai ejaan yang diminta pengguna. Identitas publik Dart mengambil
+Nama tampilan aktif sejak 9 November 2026 adalah **QueueB**. Identitas publik Dart mengambil
 `AppBrand` di `app_brand.dart`. Nama QueueB pada class, file, package,
 protokol, dan catatan desain sebelumnya tetap sebagai identitas teknis atau
 riwayat; perubahan nama tidak mengganti API, database, QR, atau autentikasi.

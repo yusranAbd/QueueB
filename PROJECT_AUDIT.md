@@ -1,4 +1,4 @@
-# PROJECT AUDIT — QueueB (Kliinik Kelompok B)
+# PROJECT AUDIT — QueueB
 
 **Tanggal audit:** 2026-11-09 · **Branch:** `main` @ `9dda7b9` · **Cakupan:** `apps/api` (NestJS + Prisma + PostgreSQL), `apps/client` (Flutter Android/Web), CI, dokumentasi, tooling.
 

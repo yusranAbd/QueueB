@@ -1,11 +1,11 @@
 {
-  "name": "Kliinik Kelompok B",
-  "short_name": "Kliinik Kelompok B",
+  "name": "QueueB",
+  "short_name": "QueueB",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F2F5FF",
   "theme_color": "#4C60CC",
-  "description": "Pendaftaran dan operasional antrean Kliinik Kelompok B.",
+  "description": "Pendaftaran dan operasional antrean QueueB.",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [
