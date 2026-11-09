@@ -343,6 +343,12 @@ class _LoginPageState extends State<LoginPage> {
     child: Builder(
       builder: (context) => Scaffold(
         backgroundColor: LoginStyle.paper,
+        floatingActionButton: FloatingActionButton(
+          heroTag: null,
+          tooltip: 'Masuk ke Public Display',
+          onPressed: busy ? null : widget.onDisplay,
+          child: const Icon(Icons.desktop_windows_outlined),
+        ),
         body: SafeArea(
           child: LoginLayout(child: Builder(builder: _loginCard)),
         ),
@@ -362,8 +368,35 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Center(child: QueueBBrand(compact: true)),
-              SizedBox(height: compact ? 16 : 24),
+              const Center(
+                child: ExcludeSemantics(
+                  child: QueueBBrand(
+                    compact: true,
+                    logoOnly: true,
+                    logoSize: 36,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: AppBrand.leading),
+                    TextSpan(
+                      text: AppBrand.accent,
+                      style: TextStyle(color: PatientDesign.primary),
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                  color: PatientDesign.ink,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 register ? 'Daftar' : 'Masuk',
                 textAlign: TextAlign.center,
@@ -374,7 +407,7 @@ class _LoginPageState extends State<LoginPage> {
                   color: PatientDesign.ink,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 register ? 'Daftar akun pasien' : 'Akses sistem antrean klinik',
                 textAlign: TextAlign.center,
@@ -384,7 +417,7 @@ class _LoginPageState extends State<LoginPage> {
                   height: 1.4,
                 ),
               ),
-              SizedBox(height: compact ? 20 : 26),
+              const SizedBox(height: 16),
               if (widget.notice != null) notice(widget.notice!),
               if (error != null) notice(error!, isError: true),
               if (message != null) notice(message!, success: true),
@@ -406,7 +439,7 @@ class _LoginPageState extends State<LoginPage> {
                       ? 'Nama 3–150 karakter.'
                       : null,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
               ],
               TextFormField(
                 key: const ValueKey('login-email'),
@@ -429,7 +462,7 @@ class _LoginPageState extends State<LoginPage> {
                     ? 'Masukkan email yang valid.'
                     : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               TextFormField(
                 key: const ValueKey('login-password'),
                 controller: password,
@@ -467,7 +500,7 @@ class _LoginPageState extends State<LoginPage> {
                     ? 'Kata sandi 8–72 karakter.'
                     : null,
               ),
-              SizedBox(height: compact ? 18 : 22),
+              const SizedBox(height: 16),
               FilledButton(
                 onPressed: busy ? null : submit,
                 child: Row(
@@ -496,34 +529,7 @@ class _LoginPageState extends State<LoginPage> {
                   ],
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: compact ? 12 : 18),
-                child: const Row(
-                  children: [
-                    Expanded(child: Divider(color: LoginStyle.rule)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 14),
-                      child: Text(
-                        'atau',
-                        style: TextStyle(
-                          color: PatientDesign.muted,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: LoginStyle.rule)),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: busy ? null : widget.onDisplay,
-                icon: const Icon(Icons.desktop_windows_outlined, size: 20),
-                label: const Text(
-                  'Masuk ke Public Display',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               TextButton(
                 onPressed: busy
                     ? null

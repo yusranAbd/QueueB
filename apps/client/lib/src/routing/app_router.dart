@@ -41,11 +41,19 @@ class AppRouting {
   }
 
   void _scopeChanged() {
-    if (_configuredScope == refresh.scopeKey) return;
-    _configuredScope = refresh.scopeKey;
-    // Fresh branch navigator identities evict retained private stacks even
-    // when two accounts have the same role and the URL does not change.
-    _configuration.value = _routes();
+    if (_configuredScope != refresh.scopeKey) {
+      _configuredScope = refresh.scopeKey;
+      // Fresh branch navigator identities evict retained private stacks even
+      // when two accounts have the same role and the URL does not change.
+      _configuration.value = _routes();
+    }
+    if (api.sessionPhase == SessionPhase.signingOut) {
+      final location = router.routeInformationProvider.value.uri;
+      if (location.path != '/display' && location.toString() != '/session') {
+        // Replace the pending URI before logout can finish in the same frame.
+        router.go('/session');
+      }
+    }
   }
 
   RoutingConfig _routes() {
@@ -60,6 +68,7 @@ class AppRouting {
         phase: api.sessionPhase,
         signedIn: api.user != null,
         role: api.user?['peran'] as String?,
+        preserveReturn: api.sessionPhase != SessionPhase.signingOut,
       ),
       routes: [
         GoRoute(
@@ -113,7 +122,6 @@ class AppRouting {
                       : RoutePolicy.adminPaths.indexOf(state.uri.path) - 1,
                   onSection: (section) =>
                       context.go(RoutePolicy.adminPaths[section + 1]),
-                  onProfile: () => context.go('/admin/profile'),
                   routeChild: child,
                 ),
               ),

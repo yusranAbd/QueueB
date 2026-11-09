@@ -92,7 +92,7 @@ class PatientTicketDispatchPanel extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         height: 1.3,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w400,
                         letterSpacing: .3,
                         color: PatientDesign.primary,
                       ),
@@ -111,7 +111,7 @@ class PatientTicketDispatchPanel extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10,
                     height: 1.3,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     color: verifiedLive
                         ? PatientDesign.primary
                         : PatientDesign.muted,
@@ -263,7 +263,7 @@ class _DispatchCountCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               height: 1.3,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w400,
               color: ink,
             ),
           ),
@@ -334,7 +334,7 @@ class _DispatchInfoRow extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           height: 1.35,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
           color: color,
         ),
       );

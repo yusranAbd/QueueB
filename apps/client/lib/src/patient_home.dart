@@ -332,40 +332,37 @@ class PatientHomeVisit extends StatelessWidget {
     final day = '${ticket['tanggalPelayanan'] ?? ticket['tanggalAntrean']}';
     final status = '${ticket['status'] ?? '—'}';
     final slot = object(appointment?['slotPraktik']);
-    final when = Tooltip(
-      message: config.serviceTimeZone,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${patientCompactDate(day)} ${DateTime.tryParse(dateOnly(day))?.year ?? ''}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+    final when = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${patientCompactDate(day)} ${DateTime.tryParse(dateOnly(day))?.year ?? ''}',
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (slot['mulaiPada'] != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              patientTime(slot, config),
+              style: const TextStyle(fontSize: 13, color: Colors.white),
             ),
           ),
-          if (slot['mulaiPada'] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                patientTime(slot, config),
-                style: const TextStyle(fontSize: 13, color: Colors.white),
-              ),
+        if (room.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              [
+                room['kode'],
+                room['nama'],
+              ].whereType<String>().where((v) => v.isNotEmpty).join(' · '),
+              style: const TextStyle(fontSize: 11, color: Colors.white),
             ),
-          if (room.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                [
-                  room['kode'],
-                  room['nama'],
-                ].whereType<String>().where((v) => v.isNotEmpty).join(' · '),
-                style: const TextStyle(fontSize: 11, color: Colors.white),
-              ),
-            ),
-        ],
-      ),
+          ),
+      ],
     );
     final number = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,7 +794,7 @@ class PatientHomeDoctor extends StatelessWidget {
                         ? 'Jadwal belum dapat dimuat.'
                         : preview.session == null
                         ? 'Jadwal belum tersedia.'
-                        : '${patientDate('${preview.session!['tanggal']}')}\n${patientTime(preview.session!, config)} · ${config.serviceTimeZone}',
+                        : '${patientDate('${preview.session!['tanggal']}')}\n${patientTime(preview.session!, config)}',
                     style: const TextStyle(
                       fontSize: 11,
                       height: 1.4,

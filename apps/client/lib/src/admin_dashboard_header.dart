@@ -312,14 +312,15 @@ class _AdminHeaderClockState extends State<_AdminHeaderClock> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.schedule_rounded, size: 16, color: QueueBStyle.muted),
-        const SizedBox(width: 6),
+        const Icon(Icons.schedule_rounded, size: 19, color: QueueBStyle.navy),
+        const SizedBox(width: 8),
         Text(
-          '${widget.config.serviceTimeZone} · ${two(now.hour)}:${two(now.minute)}',
+          '${two(now.hour)}:${two(now.minute)}',
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 17,
             height: 1.3,
-            color: QueueBStyle.muted,
+            fontWeight: FontWeight.w600,
+            color: QueueBStyle.navy,
           ),
         ),
       ],

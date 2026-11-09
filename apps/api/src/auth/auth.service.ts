@@ -1,5 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
+  NotFoundException,
   Injectable,
   Optional,
   HttpException,
@@ -280,6 +283,95 @@ export class AuthService {
     return {
       message: 'Logout berhasil',
     };
+  }
+
+  /**
+   * Mengganti kata sandi hanya untuk akun DOKTER/PETUGAS.
+   * Sesi lama dicabut dalam transaksi yang sama dengan perubahan hash.
+   * Nilai kata sandi tidak boleh dimasukkan ke audit atau respons API.
+   */
+  async adminResetStaffPassword(
+    admin: { id: string; peran: string },
+    targetId: string,
+    newPassword: unknown,
+    context = authAuditContext(),
+  ): Promise<{ message: string; sessionsRevoked: number }> {
+    if (admin.peran !== 'ADMIN' || admin.id === targetId) {
+      throw new ForbiddenException('Akses ditolak');
+    }
+    if (typeof newPassword !== 'string' || newPassword.length !== 8) {
+      throw new BadRequestException('Kata sandi harus tepat 8 karakter');
+    }
+    const passwordHash = await this.passwordService.hash(newPassword);
+    const changedAt = new Date();
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Kunci baris agar reset serentak dengan login tidak meninggalkan sesi aktif.
+        const locked = await tx.$queryRaw<
+          Array<{
+            id: string;
+            peran: string;
+            audit_ref: string;
+          }>
+        >`
+        SELECT id, peran::text AS peran, audit_ref
+        FROM pengguna WHERE id=${targetId}::uuid AND aktif=true FOR UPDATE
+      `;
+        const account = locked[0];
+        if (!account || !['PETUGAS', 'DOKTER'].includes(account.peran)) {
+          throw new NotFoundException(
+            'Akun dokter/petugas aktif tidak ditemukan',
+          );
+        }
+        if (account.peran === 'DOKTER') {
+          const linked = await tx.dokter.count({
+            where: { penggunaId: targetId },
+          });
+          if (!linked) {
+            throw new BadRequestException(
+              'Akun dokter belum ditautkan ke profil',
+            );
+          }
+        }
+        const actor = await tx.pengguna.findUnique({
+          where: { id: admin.id },
+          select: { auditRef: true, peran: true, aktif: true },
+        });
+        if (!actor?.aktif || actor.peran !== 'ADMIN') {
+          throw new ForbiddenException('Akses admin tidak berlaku');
+        }
+        await tx.pengguna.update({
+          where: { id: targetId },
+          data: { kataSandiHash: passwordHash },
+        });
+        const sessions = await tx.sesiPengguna.updateMany({
+          where: { penggunaId: targetId, dicabutPada: null },
+          data: { dicabutPada: changedAt },
+        });
+        // Nilai wajib lolos CHECK audit_sesi (migrasi 20261102): sama dengan
+        // pencabutan sesi akibat ganti sandi (AuthAuditService.recordRevocation).
+        // Audit di dalam transaksi: reset tanpa jejak audit tidak boleh commit.
+        await tx.auditSesi.create({
+          data: {
+            requestId: context.requestId,
+            akunRef: account.audit_ref,
+            aktorRef: actor.auditRef,
+            aksi: 'CABUT_SESI',
+            hasil: 'BERHASIL',
+            alasan: 'PASSWORD_CHANGED',
+            klien: context.klien,
+            sumber: 'UNKNOWN',
+            jumlahSesi: sessions.count,
+          },
+        });
+        return {
+          message: 'Kata sandi berhasil direset. Pengguna harus login kembali.',
+          sessionsRevoked: sessions.count,
+        };
+      },
+      { isolationLevel: 'Serializable', timeout: 10_000 },
+    );
   }
 
   private async audited<T>(

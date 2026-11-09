@@ -149,7 +149,7 @@ class _PatientAgendaState extends State<PatientAgenda> {
                     child: Text(
                       patientDate(dayOf(a)),
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w400,
                         fontSize: 14,
                       ),
                     ),
@@ -172,19 +172,11 @@ class _PatientAgendaState extends State<PatientAgenda> {
                   color: PatientDesign.primary,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                widget.config.serviceTimeZone,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: PatientDesign.muted,
-                ),
-              ),
               const Divider(),
               if (doctor.isNotEmpty)
                 Text(
                   label(doctor),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
               if (clinic.isNotEmpty)
                 Text(

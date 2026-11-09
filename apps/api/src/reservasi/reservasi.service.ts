@@ -4,8 +4,10 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import {
   HariLayanan,
@@ -48,8 +50,139 @@ const pilihTiket = {
 } as const;
 
 @Injectable()
-export class ReservasiService {
+export class ReservasiService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(ReservasiService.name);
+  private jadwalKedaluwarsa?: ReturnType<typeof setInterval>;
+  private pemrosesanGlobal?: Promise<number>;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  // Tanggal pelayanan adalah PostgreSQL DATE (UTC tengah malam), sedangkan
+  // batas pergantian hari harus mengikuti SERVICE_TIME_ZONE klinik.
+  // Tanpa migrasi schema: DILEWATI sudah ada di StatusTiket.
+  onModuleInit(): void {
+    // Saat API restart, tiket lama yang terlewat ikut ditertibkan.
+    this.picukanKedaluwarsa();
+    // Pengecekan rutin, termasuk saat tidak ada pasien membuka aplikasi.
+    this.jadwalKedaluwarsa = setInterval(
+      () => this.picukanKedaluwarsa(),
+      60_000,
+    );
+    this.jadwalKedaluwarsa.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.jadwalKedaluwarsa) {
+      clearInterval(this.jadwalKedaluwarsa);
+      this.jadwalKedaluwarsa = undefined;
+    }
+  }
+
+  private picukanKedaluwarsa(): void {
+    if (this.pemrosesanGlobal) return;
+    const pending = this.kedaluwarsakanTiketLampau();
+    const tracked = pending.finally(() => {
+      if (this.pemrosesanGlobal === tracked) this.pemrosesanGlobal = undefined;
+    });
+    this.pemrosesanGlobal = tracked;
+    void tracked.catch((error: unknown) => {
+      // Scheduler tidak boleh menjatuhkan proses API apabila DB sementara gagal.
+      this.logger.error('Pemeriksaan tiket kedaluwarsa gagal', error);
+    });
+  }
+
+  /**
+   * Bersihkan tiket lampau dengan transaksi per batch: perubahan status dan
+   * PeristiwaAntrean selalu commit/rollback bersama.
+   *
+   * DIPANGGIL/DILAYANI sengaja tidak diubah, karena membutuhkan penyelesaian
+   * operasional oleh petugas. DILEWATI pada hari berjalan (SKIP) tetap sah.
+   */
+  private async kedaluwarsakanTiketLampau(penggunaId?: string): Promise<number> {
+    const batas = new Date(`${this.tanggalHariIniLokal()}T00:00:00.000Z`);
+    const statusAktif = [
+      StatusTiket.DIPESAN,
+      StatusTiket.CHECK_IN,
+      StatusTiket.MENUNGGU,
+    ];
+    const ukuranBatch = 40;
+    let jumlahTotal = 0;
+
+    while (true) {
+      const hasil = await this.prisma.$transaction(
+        async (tx) => {
+          const kandidat = await tx.tiketAntrean.findMany({
+            where: {
+              ...(penggunaId ? { penggunaId } : {}),
+              tanggalAntrean: { lt: batas },
+              status: { in: statusAktif },
+            },
+            orderBy: [{ tanggalAntrean: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              tanggalAntrean: true,
+              status: true,
+              versi: true,
+            },
+            take: ukuranBatch,
+          });
+          let diubah = 0;
+          for (const tiket of kandidat) {
+            // Compare-and-swap mencegah cron/read API menimpa aksi lain.
+            const perubahan = await tx.tiketAntrean.updateMany({
+              where: {
+                id: tiket.id,
+                tanggalAntrean: { lt: batas },
+                status: tiket.status,
+                versi: tiket.versi,
+              },
+              data: {
+                status: StatusTiket.DILEWATI,
+                versi: { increment: 1 },
+                // QR lama tidak boleh dipakai setelah tanggal pelayanan berlalu.
+                tokenQrHash: null,
+                qrKedaluwarsaPada: null,
+              },
+            });
+            if (perubahan.count !== 1) continue;
+
+            await tx.peristiwaAntrean.create({
+              data: {
+                tiketAntreanId: tiket.id,
+                // NULL menunjukkan transisi otomatis, bukan aksi pasien/petugas.
+                aktorId: null,
+                tipe: 'AUTO_EXPIRE',
+                statusSebelum: tiket.status,
+                statusSesudah: StatusTiket.DILEWATI,
+                dataTambahan: {
+                  metode: 'AUTO_EXPIRE_DATE',
+                  alasan: 'TANGGAL_PELAYANAN_TERLEWAT',
+                  tanggalPelayanan: tiket.tanggalAntrean
+                    .toISOString()
+                    .slice(0, 10),
+                  tanggalPemeriksaan: batas.toISOString().slice(0, 10),
+                },
+              },
+            });
+            diubah++;
+          }
+          return { dibaca: kandidat.length, diubah };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+          maxWait: 10000,
+          timeout: 30000,
+        },
+      );
+      jumlahTotal += hasil.diubah;
+      if (hasil.dibaca < ukuranBatch) break;
+    }
+
+    if (jumlahTotal > 0 && !penggunaId) {
+      this.logger.log(`${jumlahTotal} tiket lampau ditandai DILEWATI`);
+    }
+    return jumlahTotal;
+  }
 
   // ==========================================
   // CREATE RESERVASI
@@ -252,7 +385,9 @@ export class ReservasiService {
   // READ RESERVASI MILIK PENGGUNA
   // ==========================================
 
-  findAll(penggunaId: string) {
+  async findAll(penggunaId: string) {
+    // Pembacaan pasien juga menertibkan tiket miliknya tanpa menunggu cron.
+    await this.kedaluwarsakanTiketLampau(penggunaId);
     return this.prisma.tiketAntrean.findMany({
       where: {
         penggunaId,
@@ -263,6 +398,7 @@ export class ReservasiService {
   }
 
   async findOne(id: string, penggunaId: string) {
+    await this.kedaluwarsakanTiketLampau(penggunaId);
     const tiket = await this.prisma.tiketAntrean.findFirst({
       where: {
         id,

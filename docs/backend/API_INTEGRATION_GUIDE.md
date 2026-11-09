@@ -1591,10 +1591,10 @@ Semua endpoint berikut hanya JWT DOKTER. Backend menurunkan dokter dari akun ter
 |---|---|---|---|
 | GET | `/portal-dokter/profil` | — | `{id,kode,nama,spesialisasi,aktif,poliklinik:[{id,kode,nama}]}` |
 | GET | `/portal-dokter/jadwal` | `tanggal=YYYY-MM-DD` opsional, default hari pelayanan | Array `{id,tanggal,mulaiPada,selesaiPada,aktif,ruang:{id,kode,nama,lokasi},poliklinik:{id,kode,nama}}` |
-| GET | `/portal-dokter/janji-temu` | tanggal seperti jadwal | Array `{nomorAntrean,tanggalPelayanan,mulaiPada,selesaiPada,status,poliklinik,ruang,jadwalPraktikId}` |
+| GET | `/portal-dokter/janji-temu` | tanggal seperti jadwal | Array `{nomorAntrean,namaPasien,tanggalPelayanan,mulaiPada,selesaiPada,status,poliklinik,ruang,jadwalPraktikId}` |
 | GET | `/portal-dokter/antrean/snapshot` | `jadwalPraktikId=UUID` wajib | Snapshot sesi aktif di bawah |
 
-Path berawalan `/api/v1`. Tanggal harus tanggal kalender nyata, bukan timestamp. Instan mulai/selesai memakai ISO 8601 UTC; tanggal pelayanan mengikuti SERVICE_TIME_ZONE. Jadwal sendiri termasuk jadwal nonaktif agar statusnya terlihat; appointment sendiri tetap menampilkan status tiket termasuk pembatalan. Daftar kosong ialah `[]`, bukan data ilustratif atau error. Tidak ada nama/ID pasien, email/telepon pasien, ID tiket, kode tiket, QR/hash QR atau data klinis pada respons portal.
+Path berawalan `/api/v1`. Tanggal harus tanggal kalender nyata, bukan timestamp. Instan mulai/selesai memakai ISO 8601 UTC; tanggal pelayanan mengikuti SERVICE_TIME_ZONE. Jadwal sendiri termasuk jadwal nonaktif agar statusnya terlihat; appointment sendiri tetap menampilkan status tiket termasuk pembatalan. Daftar kosong ialah `[]`, bukan data ilustratif atau error. Respons janji temu serta baris `menunggu`/`aktif` pada snapshot menyertakan `namaPasien` dari `tiket.pengguna.nama`, hanya pada scope tiket yang sudah diizinkan. Kedua endpoint memakai `Cache-Control: no-store`. ID akun pasien, NIK, email/telepon pasien, ID tiket, kode tiket, QR/hash QR dan data klinis tetap tidak disertakan; field nama tidak ditambahkan ke event realtime atau portal lain.
 
 Snapshot hanya diizinkan untuk sesi **milik dokter, hari ini, sudah mulai dan belum berakhir**, dengan rantai profil/relasi/poli/ruang/sesi aktif. Sesi orang lain, ruang berbeda, tanggal lain, belum mulai, berakhir/nonaktif menghasilkan 403. Klien memilih ID dari jadwal sendiri, bukan ID ruang sembarang.
 
@@ -1607,14 +1607,14 @@ Snapshot hanya diizinkan untuk sesi **milik dokter, hari ini, sudah mulai dan be
   "ruang": {"id":"UUID-ruang","kode":"R1","nama":"Ruang 1","lokasi":null},
   "poliklinik": {"id":"UUID-poli","kode":"MAT","nama":"Poli Mata"},
   "totalMenunggu": 1,
-  "menunggu": [{"nomorAntrean":"A-001","status":"MENUNGGU","jenisAntrean":"JANJI_TEMU","layakDipanggil":true}],
-  "aktif": [{"nomorAntrean":"A-002","status":"DIPANGGIL"}]
+  "menunggu": [{"nomorAntrean":"A-001","namaPasien":"Contoh Pasien Satu","status":"MENUNGGU","jenisAntrean":"JANJI_TEMU","layakDipanggil":true}],
+  "aktif": [{"nomorAntrean":"A-002","namaPasien":"Contoh Pasien Dua","status":"DIPANGGIL"}]
 }
 ```
 
-Contoh tersebut ilustratif. `aktif` memuat DIPANGGIL/DILAYANI. `totalMenunggu` adalah jumlah dalam **scope sesi dokter**; `menunggu` maksimal 100. Appointment harus terkait slot sesi sendiri; appointment dokter lain tetap disembunyikan meskipun tiket mengarah ke ruang yang sama. Walk-in HIBRIDA hanya metadata operasional minimum untuk ruang/tanggal/sesi aktif yang berwenang. Walk-in tidak diberi dokterId buatan. Status dan urutan bersumber dari tiket serta selector Hospital existing (termasuk urutan REQUEUE), tanpa perubahan Queue Engine atau kebijakan numerik.
+Contoh tersebut ilustratif. `namaPasien` merupakan nama akun yang tercatat pada tiket, bukan nama/identitas medis buatan atau relasi baru ke dokter. `aktif` memuat DIPANGGIL/DILAYANI. `totalMenunggu` adalah jumlah dalam **scope sesi dokter**; `menunggu` maksimal 100. Appointment harus terkait slot sesi sendiri; appointment dokter lain tetap disembunyikan meskipun tiket mengarah ke ruang yang sama. Walk-in HIBRIDA hanya metadata operasional dan nama pasien untuk ruang/tanggal/sesi aktif yang berwenang. Walk-in tidak diberi dokterId buatan. Status dan urutan bersumber dari tiket serta selector Hospital existing (termasuk urutan REQUEUE), tanpa perubahan Queue Engine atau kebijakan numerik.
 
-Untuk **ANTREAN_HARIAN**, dokter dengan sesi praktik aktif yang sah juga memantau tiket non-appointment MENUNGGU pada poli dan tanggal pelayanan yang sama. Daftar tunggu harian merupakan pool bersama per poli, sehingga `loketId` kosong setelah REQUEUE tidak menyembunyikan tiket. Urutannya tetap `urutanMasukAntrean ASC, id ASC`, sama dengan CALL harian; bukan urutan check-in/slot Hospital. Metadata `jenisAntrean=WALK_IN` dan `layakDipanggil=true` diberikan untuk entri MENUNGGU dengan urutan masuk yang valid. Tiket aktif DIPANGGIL/DILAYANI tetap hanya terlihat pada ruang sesi dokter tersebut. Sesi milik dokter, tanggal, waktu mulai/selesai dan seluruh relasi aktif tetap wajib; tidak ada perluasan ke poli lain atau akses tanpa sesi.
+Untuk **ANTREAN_HARIAN**, dokter dengan sesi praktik aktif yang sah juga memantau tiket non-appointment MENUNGGU pada poli dan tanggal pelayanan yang sama. Daftar tunggu harian merupakan pool bersama per poli, sehingga `loketId` kosong setelah REQUEUE tidak menyembunyikan tiket. Nama pada pool ini tidak berarti pasien sudah ditetapkan kepada dokter tertentu. Urutannya tetap `urutanMasukAntrean ASC, id ASC`, sama dengan CALL harian; bukan urutan check-in/slot Hospital. Metadata `jenisAntrean=WALK_IN` dan `layakDipanggil=true` diberikan untuk entri MENUNGGU dengan urutan masuk yang valid. Tiket aktif DIPANGGIL/DILAYANI tetap hanya terlihat pada ruang sesi dokter tersebut. Sesi milik dokter, tanggal, waktu mulai/selesai dan seluruh relasi aktif tetap wajib; tidak ada perluasan ke poli lain atau akses tanpa sesi.
 
 ### 19.3 Matriks pembatasan DOKTER
 

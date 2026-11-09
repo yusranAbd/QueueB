@@ -74,7 +74,7 @@ class PatientTicketCard extends StatelessWidget {
                 _fact(
                   Icons.local_hospital_outlined,
                   label(item.clinic),
-                  strong: true,
+                  highlight: true,
                 ),
                 if (item.doctor['nama'] != null)
                   _fact(Icons.person_outline, '${item.doctor['nama']}'),
@@ -91,7 +91,7 @@ class PatientTicketCard extends StatelessWidget {
                 if (item.slot['mulaiPada'] != null)
                   _fact(
                     Icons.schedule_outlined,
-                    '${patientTime(item.slot, config)} · ${config.serviceTimeZone}',
+                    patientTime(item.slot, config),
                   ),
               ],
             ),
@@ -122,27 +122,28 @@ class PatientTicketCard extends StatelessWidget {
     );
   }
 
-  Widget _fact(IconData icon, String value, {bool strong = false}) => Padding(
-    padding: const EdgeInsets.only(bottom: 7),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: PatientDesign.primary),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.3,
-              color: strong ? PatientDesign.ink : PatientDesign.muted,
-              fontWeight: strong ? FontWeight.w600 : FontWeight.w400,
+  Widget _fact(IconData icon, String value, {bool highlight = false}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: PatientDesign.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.3,
+                  color: highlight ? PatientDesign.ink : PatientDesign.muted,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _TicketRule extends CustomPainter {

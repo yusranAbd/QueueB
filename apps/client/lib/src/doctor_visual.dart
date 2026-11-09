@@ -244,7 +244,7 @@ class _DoctorDashboardClockState extends State<DoctorDashboardClock> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Pukul ${two(now.hour)}.${two(now.minute)} · ${widget.config.serviceTimeZone}',
+                  'Pukul ${two(now.hour)}.${two(now.minute)}',
                   style: const TextStyle(fontSize: 12, color: DoctorStyle.ink),
                 ),
               ),

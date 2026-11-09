@@ -641,26 +641,6 @@ class _PracticeScheduleEditorState extends State<PracticeScheduleEditor> {
                               'Atur jadwal layanan dokter di poliklinik.',
                               style: TextStyle(color: _PracticeStyle.muted),
                             ),
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.schedule,
-                                  size: 18,
-                                  color: _PracticeStyle.muted,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Zona waktu: ${config.serviceTimeZone}',
-                                    style: const TextStyle(
-                                      color: _PracticeStyle.muted,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),

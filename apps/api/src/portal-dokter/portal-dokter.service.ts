@@ -112,6 +112,7 @@ export class PortalDokterService {
             nomorUrut: true,
             status: true,
             tanggalAntrean: true,
+            pengguna: { select: { nama: true } },
             layanan: { select: { prefixAntrean: true } },
           },
         },
@@ -123,6 +124,7 @@ export class PortalDokterService {
         a.tiket.layanan.prefixAntrean,
         a.tiket.nomorUrut,
       ),
+      namaPasien: a.tiket.pengguna.nama,
       tanggalPelayanan: a.tiket.tanggalAntrean,
       mulaiPada: a.slotPraktik.mulaiPada,
       selesaiPada: a.slotPraktik.selesaiPada,
@@ -208,6 +210,7 @@ export class PortalDokterService {
             tanggalAntrean: true,
             layananId: true,
             dipanggilPada: true,
+            pengguna: { select: { nama: true } },
             peristiwaAntrean: {
               where: { tipe: 'REQUEUE' },
               orderBy: { terjadiPada: 'desc' },
@@ -256,6 +259,7 @@ export class PortalDokterService {
           totalMenunggu: waiting.length,
           menunggu: ordered.slice(0, 100).map((k) => ({
             nomorAntrean: this.nomor(layanan.prefixAntrean, k.tiket.nomorUrut),
+            namaPasien: k.tiket.pengguna.nama,
             status: k.tiket.status,
             jenisAntrean: k.jenisAntrean,
             layakDipanggil: k.layakDipanggil,
@@ -264,6 +268,7 @@ export class PortalDokterService {
             .filter((t) => t.status !== StatusTiket.MENUNGGU)
             .map((t) => ({
               nomorAntrean: this.nomor(layanan.prefixAntrean, t.nomorUrut),
+              namaPasien: t.pengguna.nama,
               status: t.status,
             })),
         };

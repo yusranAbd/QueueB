@@ -26,8 +26,9 @@ bool isAuxiliaryHomeService(Json clinic) =>
 
 bool supportsHomeWalkIn(Json clinic) =>
     clinic['aktif'] != false &&
-    isAuxiliaryHomeService(clinic) &&
-    ['ANTREAN_HARIAN', 'HIBRIDA'].contains(clinic['modeReservasi']);
+    (clinic['modeReservasi'] == 'HIBRIDA' ||
+        (clinic['modeReservasi'] == 'ANTREAN_HARIAN' &&
+            isAuxiliaryHomeService(clinic)));
 
 bool supportsHomeAppointment(Json clinic) =>
     clinic['aktif'] != false &&
@@ -92,7 +93,7 @@ class PatientHomeHeaderV6 extends StatelessWidget {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: '${AppBrand.leading} ',
+                    text: AppBrand.leading,
                     style: TextStyle(color: PatientDesign.ink),
                   ),
                   TextSpan(

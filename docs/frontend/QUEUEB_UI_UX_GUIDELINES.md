@@ -68,6 +68,42 @@ Aksen Beranda kembali memakai palet periwinkle bersama: primary #4C60CC, hero #4
 
 Revisi 2 November 2026 memisahkan kategori tampilan dari kode dan mode booking melalui field API `kategori`. Ambil Antrean menampilkan kategori pendukung aktif (Pendaftaran, Apotek, Laboratorium, Radiologi, Kasir, Rekam Medis, dan Layanan lainnya) yang mendukung ANTREAN_HARIAN/HIBRIDA. Seluruh poliklinik tetap tampil di penjelajahan Janji Temu, termasuk poli ANTREAN_HARIAN; layanan pendukung dengan mode JANJI_TEMU_DOKTER juga dapat ditelusuri di sana. Label dan aksi mengikuti mode server, sehingga poli harian tidak dipaksa menjadi appointment. Pemetaan kode lama (termasuk DAFTAR) hanya menjadi fallback ketika respons belum memiliki kategori; perubahan kode tidak mengubah kategori tersimpan. Nilai mode tidak dikenal tidak diasumsikan dapat dipesan. Jangan menampilkan kuota tersedia atau estimasi dari keberadaan layanan saja. Klik membuka formulir/detail existing; mutasi tetap membutuhkan konfirmasi. [Implementasi dan QA V6](PATIENT_HOME_V6.md).
 
+Revisi 5 November 2026 memperluas Ambil Antrean ke seluruh layanan HIBRIDA aktif, termasuk kategori POLIKLINIK. Filter ANTREAN_HARIAN untuk layanan pendukung dan katalog Janji Temu tetap dipertahankan. Badge jenis pada judul Daftar Antrean Langsung dihilangkan karena daftar mencakup lebih dari satu mode; badge kanal walk-in pada kartu tetap menjelaskan alur pengambilan nomor. Pemilihan HIBRIDA dari tab ini memakai kanal walk-in existing, sedangkan pemilihan dokter/jadwal tetap melalui Janji Temu. Scope ringkasan/realtime mengambil himpunan layanan yang sama; tidak ada perubahan API, kuota, FIFO, atau database.
+
+Format kedua file Dart berhasil. Analisis terarah menemukan enam temuan existing di luar hunk perubahan pada patient.dart (empat warning dan dua info); tidak ada temuan pada filter layanan yang diubah. Build Web profile dengan konfigurasi preview berhasil dalam 120,7 detik, memakai output terpisah di .cache tanpa mengganti build aktif. Interaksi dan tampilan runtime belum diuji; tidak ada commit atau push pada revisi ini.
+
+### Header pasien dan QR tiket — 5 November 2026
+
+Header bersama Beranda dan daftar Reservasi menempatkan logo sebelum
+**Halo, nama pertama** dari akun aktif. Highlight **Pasien Umum** memakai
+bobot reguler, seperti caption, label status, dan metadata layar pasien.
+Notifikasi serta avatar/profil tetap tersedia.
+Sapaan tidak diulang dalam konten. Kunjungan Terdekat menjadi bagian pertama
+konten Beranda, disusul pencarian dan tab Ambil Antrean/Janji Temu. Susunan
+berlaku pada kedua tab tanpa mengganti filter, refresh atau pemilik scroll.
+Header minimal 64 pada skala normal. Shell mengizinkan tinggi header
+mengikuti isi dan text scaling agar pembulatan tinggi font tidak menyebabkan
+overflow. Nama panjang memakai ellipsis dan tooltip nama lengkap. Keterangan Reservasi menjadi
+**Jadwal kunjungan dan antrean Anda.**
+
+Detail tiket langsung menampilkan QR bukti reservasi aktual QBR1 dari tiket
+milik pasien yang sudah diverifikasi. Panel QR Check-in Sementara dan
+penerbitan SQ1 otomatis dari dialog dihapus; timer/token sementara khusus
+dialog juga dihapus. Validasi tiket, status, PDF/cetak, realtime, cleanup
+sesi, Cubit dan alur One-Scan petugas existing tetap dipertahankan. Tidak
+ada perubahan API, scanner, database atau tema global.
+
+Verifikasi: tiga file Dart diformat; analyze header/reservasi tanpa masalah.
+Analyze gabungan masih mencatat import dart:ui dan empat null-aware operator
+existing pada patient.dart; import tak terpakai akibat revisi sudah dibuang.
+Tujuh tes existing scroll shell dan satu regresi nested scroll Beranda lulus
+dengan mock lokal. Lima tes QR/PDF lulus; satu assertion nama file PDF gagal
+karena masih mengharapkan prefix QueueB, sedangkan branding existing memakai
+Kliinik_Kelompok_B. Assertion tersebut tidak diubah dalam revisi ini. Build
+Web profile lulus dalam 129,2 detik ke folder cache terpisah, tanpa menimpa
+preview aktif. Tidak ada pengujian Android fisik, mutasi database, commit
+atau push.
+
 ### Warna dan visual operasional
 
 `QueueBStyle` mempertahankan nama alias existing (`teal`, `darkTeal`, `navy`, `mint`) demi kompatibilitas source, tetapi nilainya kini mengacu pada primary biru, ink dan soft dari QueueBPalette. Jangan menganggap nama legacy tersebut sebagai instruksi memakai teal lama. ADMIN memakai background/soft/cyan yang sama. Panel aksi PETUGAS dan live DOKTER memakai console #1D3270 sampai #314DA3 dengan teks putih/#E6EDFF; Public Display memakai hero #4169D5. Ukuran/font/grid tidak diubah. Status success/warning/danger operasional tetap memiliki warna semantik existing; jangan menggantinya dengan satu warna dekoratif.
@@ -101,6 +137,34 @@ Skala praktis: 4, 8, 12, 16, 20, 24. Token reusable: `smallSpace=8`, `mediumSpac
 Statistik penting dapat lebih besar dari body bila membantu pemindaian cepat. Font 11–12 tidak dipakai untuk instruksi kritis atau pesan error panjang. Override operasional existing seperti metadata PETUGAS 11 dan label 12 boleh dipertahankan jika terbaca dan diuji; jangan mengubah semua angka hanya demi seragam.
 
 `operationalTextTheme` menetapkan headline 20/22, title 14/15/17, body 12/13/14 dan label 11/12/13. Ini mencegah fallback headline Material 24–32 masuk ke card operasional. Ukuran eksplisit pada halaman lama tidak otomatis berubah; koreksi per halaman setelah ada bukti proporsi bermasalah.
+
+### Revisi monitor DOKTER — 5 November 2026
+
+Tabel dokter menampilkan No. Antrean, Kunjungan, Nama Pasien dan Status.
+Nama bersumber dari `namaPasien` pada endpoint dokter yang tetap dibatasi
+scope existing; bukan nama buatan atau tambahan identitas klinis. Pencarian
+mendukung nomor/nama dan tetap mencocokkan layanan/ruang yang sudah dimuat.
+Menu tiga titik dan dialog detail antrean dihapus sesuai arahan pengguna.
+
+Panel Antrean Aktif mengutamakan nomor 68–84, nama pasien, serta metadata
+layanan/slot aktual. Tombol Lihat detail antrean dihapus. Footer memakai
+**Antrean berikutnya = nomor**, ukuran 18–20, berdasarkan kandidat layak dari
+server; tampil — bila tidak ada kandidat. Pemilih beberapa antrean aktif
+memakai dropdown agar tinggi panel tidak bertambah. Desktop normal memakai
+ruang panel yang tersedia tanpa scroll internal monitor; layar pendek atau
+text scaling besar tetap dapat scroll agar informasi tidak terpotong.
+Pagination tabel, pemilihan antrean aktif, realtime dan urutan server tetap
+dipertahankan; portal ini tidak menambahkan aksi pelayanan PETUGAS.
+
+Verifikasi revisi: format Dart/Prettier lulus, analyze terarah
+`doctor_dashboard.dart` tanpa masalah, typecheck source API dengan
+`tsconfig.build.json` lulus, dan build Web profile lulus (101,5 detik) pada
+folder cache terpisah. Typecheck proyek API termasuk tes masih terhenti pada
+`queue-broadcast.e2e-spec.ts:390` karena union tipe tidak mencakup CANCEL;
+file tersebut tidak diubah. Assertion privasi lama pada tes portal dokter
+disesuaikan agar key namaPasien tidak lagi ditolak, dengan larangan ID dan
+rahasia tetap dipertahankan. Test suite, pengujian UI runtime dan database
+tidak dijalankan. Tidak ada commit atau push.
 
 ### Penyempurnaan ADMIN — 2 November 2026
 

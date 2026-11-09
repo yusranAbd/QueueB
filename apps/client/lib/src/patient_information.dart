@@ -16,7 +16,6 @@ class PatientInformation extends StatelessWidget {
     required this.services,
     required this.hours,
     required this.date,
-    required this.timeZone,
     required this.hoursAvailable,
     required this.loading,
     required this.onRefresh,
@@ -25,7 +24,6 @@ class PatientInformation extends StatelessWidget {
   });
   final List<Json> services, hours;
   final String date;
-  final String timeZone;
   final bool hoursAvailable, loading;
   final String? error, hoursError;
   final VoidCallback? onRefresh;
@@ -61,9 +59,9 @@ class PatientInformation extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
-                'Layanan dan jam operasional dari katalog klinik. Jadwal mengikuti zona pelayanan $timeZone.',
-                style: const TextStyle(
+              const Text(
+                'Layanan dan jam operasional dari katalog klinik.',
+                style: TextStyle(
                   fontSize: 13,
                   height: 1.4,
                   color: PatientDesign.muted,

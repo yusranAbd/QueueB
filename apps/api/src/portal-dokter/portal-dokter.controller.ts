@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Query, UseGuards } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -21,16 +21,14 @@ export class PortalDokterController {
   ) {
     return this.portal.jadwal(u.id, q.tanggal);
   }
-  @Get('janji-temu') janji(
-    @CurrentUser() u: AuthenticatedUser,
-    @Query() q: PortalTanggalDto,
-  ) {
+  @Get('janji-temu')
+  @Header('Cache-Control', 'no-store')
+  janji(@CurrentUser() u: AuthenticatedUser, @Query() q: PortalTanggalDto) {
     return this.portal.janjiTemu(u.id, q.tanggal);
   }
-  @Get('antrean/snapshot') snapshot(
-    @CurrentUser() u: AuthenticatedUser,
-    @Query() q: PortalSnapshotDto,
-  ) {
+  @Get('antrean/snapshot')
+  @Header('Cache-Control', 'no-store')
+  snapshot(@CurrentUser() u: AuthenticatedUser, @Query() q: PortalSnapshotDto) {
     return this.portal.snapshot(u.id, q.jadwalPraktikId);
   }
 }

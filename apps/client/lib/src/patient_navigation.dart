@@ -13,7 +13,7 @@ int patientBottomIndex(int tab) => switch (tab) {
 };
 
 /// Retire the duplicate service catalog while preserving supported booking URLs.
-/// Explicit clinic links still open service details; doctor/nearest routes remain.
+/// Explicit clinic links are resolved by the patient page according to mode.
 String? patientBookingRedirect(Uri uri) {
   final clinic = uri.queryParameters['clinic'];
   if (clinic != null && clinic.trim().isNotEmpty) return null;

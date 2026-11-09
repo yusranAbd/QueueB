@@ -542,11 +542,15 @@ class _BulkScheduleEditorState extends State<BulkScheduleEditor> {
                           r.outcome == ScheduleOutcome.failed ||
                           r.outcome == ScheduleOutcome.uncertain,
                     ),
-                    success: results.every(
-                      (r) =>
-                          r.outcome == ScheduleOutcome.created ||
-                          r.outcome == ScheduleOutcome.existing,
-                    ),
+                    success:
+                        results.any(
+                          (r) => r.outcome == ScheduleOutcome.created,
+                        ) &&
+                        results.every(
+                          (r) =>
+                              r.outcome == ScheduleOutcome.created ||
+                              r.outcome == ScheduleOutcome.existing,
+                        ),
                   ),
                   for (final result in results)
                     ListTile(

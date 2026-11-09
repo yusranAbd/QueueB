@@ -65,8 +65,44 @@ export class TiketService {
 
   async findAll(penggunaId: string) {
     const reservasi = await this.reservasiService.findAll(penggunaId);
+    if (!this.prisma || reservasi.length === 0) {
+      return reservasi.map((tiket) => this.formatTiket(tiket));
+    }
 
-    return reservasi.map((tiket) => this.formatTiket(tiket));
+    // One batched lookup also keeps room hints available after the patient
+    // portal refreshes the owned-ticket list while the detail dialog is open.
+    const loket = await this.prisma.loket.findMany({
+      where: {
+        layananId: { in: [...new Set(reservasi.map((t) => t.layananId))] },
+        aktif: true,
+      },
+      select: {
+        layananId: true,
+        id: true,
+        kode: true,
+        nama: true,
+        lokasi: true,
+      },
+      orderBy: [{ kode: 'asc' }, { id: 'asc' }],
+    });
+    const loketPerLayanan = new Map<
+      string,
+      Array<{ id: string; kode: string; nama: string; lokasi: string | null }>
+    >();
+    for (const item of loket) {
+      const items = loketPerLayanan.get(item.layananId) ?? [];
+      items.push({
+        id: item.id,
+        kode: item.kode,
+        nama: item.nama,
+        lokasi: item.lokasi,
+      });
+      loketPerLayanan.set(item.layananId, items);
+    }
+    return reservasi.map((tiket) => ({
+      ...this.formatTiket(tiket),
+      loketLayanan: loketPerLayanan.get(tiket.layananId) ?? [],
+    }));
   }
 
   // ==========================================
@@ -74,9 +110,24 @@ export class TiketService {
   // ==========================================
 
   async findOne(id: string, penggunaId: string) {
+    // Verify ticket ownership before reading the public service-room catalogue.
     const tiket = await this.reservasiService.findOne(id, penggunaId);
 
-    return this.formatTiket(tiket);
+    // A configured service room is informational. It is NOT the room assigned
+    // by CALL, which remains authoritative in the dispatch read model.
+    // Prisma is optional to preserve existing standalone read-only consumers.
+    const loketLayanan = this.prisma
+      ? await this.prisma.loket.findMany({
+          where: { layananId: tiket.layananId, aktif: true },
+          select: { id: true, kode: true, nama: true, lokasi: true },
+          orderBy: [{ kode: 'asc' }, { id: 'asc' }],
+        })
+      : null;
+
+    return {
+      ...this.formatTiket(tiket),
+      ...(loketLayanan === null ? {} : { loketLayanan }),
+    };
   }
 
   /**

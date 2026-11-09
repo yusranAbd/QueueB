@@ -1,0 +1,7 @@
+Asset: login_hospital_building.png
+Generator: built-in image_gen (imagegen skill), transparent background.
+Purpose: decorative hospital architecture for the login reference layout.
+This is an illustration, not a photograph of a named facility.
+
+Final prompt:
+Use case: product-mockup. Asset type: transparent-background hospital building cutout for the lower-left of a blue hospital queue system login page. Create a polished photorealistic architectural illustration of a modern three-story hospital, white architectural cladding, large blue-tinted windows, a blue square sign containing a simple white medical plus on the upper left facade, a sheltered glass entrance and a few realistic green trees and landscaping in the left foreground. Low-angle three-quarter perspective, welcoming daylight, clean professional healthcare architecture. Horizontal composition, building fills the lower two-thirds, roofline rising toward the left, foreground cropped naturally at the bottom edge, no large empty margins. The upper area outside the building and trees must be transparent so the building can be layered on a deep blue page background. The building and trees have crisp natural alpha edges, soft natural lighting, photographic realism rather than cartoon or 3D toy style. Only this building illustration, no UI, no typography, words, watermark, people, vehicles, or extra icons. Use a transparent background.

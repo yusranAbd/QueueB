@@ -164,7 +164,7 @@ Future<Uint8List> operationalReportPdf(Json report) async {
         ),
         pw.SizedBox(height: 8),
         pw.Text(
-          '${period['mulai']} s.d. ${period['selesai']} | ${period['zonaWaktu']} | Layanan: ${period['layananId'] == null ? 'Semua' : data.firstOrNull?['namaLayanan'] ?? 'Filter layanan'}',
+          '${period['mulai']} s.d. ${period['selesai']} | Layanan: ${period['layananId'] == null ? 'Semua' : data.firstOrNull?['namaLayanan'] ?? 'Filter layanan'}',
         ),
         pw.Text(
           'Diperoleh: ${report['diperolehPada']}',

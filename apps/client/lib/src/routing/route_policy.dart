@@ -98,7 +98,13 @@ abstract final class RoutePolicy {
     }
     final q = uri.queryParameters;
     if (q.containsKey('mode') &&
-        !['legacy', 'nearest', 'clinics', 'doctors'].contains(q['mode'])) {
+        ![
+          'legacy',
+          'nearest',
+          'clinics',
+          'doctors',
+          'walk-in',
+        ].contains(q['mode'])) {
       return false;
     }
     if (q.containsKey('clinic') && !validId(q['clinic']!)) return false;
@@ -132,14 +138,18 @@ abstract final class RoutePolicy {
     required SessionPhase phase,
     required bool signedIn,
     required String? role,
+    bool preserveReturn = true,
   }) {
     // Device credentials and account credentials have independent lifetimes.
     if (uri.path == '/display' && validDestination(uri)) return null;
     if (!registered(uri.path)) return null; // safe errorBuilder, never echo URI
     if (!validDestination(uri, allowReturn: true)) return '/forbidden';
     if (uri.path == '/forbidden') return null;
-    final from = safeReturn(uri.queryParameters['from']);
-    final current = safeReturn(uri.toString());
+    // Explicit logout ends the navigation intent of the previous account.
+    final from = preserveReturn
+        ? safeReturn(uri.queryParameters['from'])
+        : null;
+    final current = preserveReturn ? safeReturn(uri.toString()) : null;
     if (phase != SessionPhase.ready) {
       final target = _withReturn('/session', from ?? current);
       return target == uri.toString() ? null : target;

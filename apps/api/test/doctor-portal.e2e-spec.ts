@@ -288,7 +288,7 @@ describe('Doctor portal isolated full-stack (e2e)', () => {
     }
     await app?.close();
   }, 30000);
-  it('derives own profile/schedules/appointments and returns no patient identity or account secrets', async () => {
+  it('derives own profile/schedules/appointments while hiding patient account IDs and secrets', async () => {
     const p = await request(http())
       .get('/api/v1/portal-dokter/profil')
       .set('Authorization', auth(doctor))
@@ -305,7 +305,7 @@ describe('Doctor portal isolated full-stack (e2e)', () => {
       .expect(200);
     expect((a.body as Row[]).map((r) => r.nomorAntrean)).toEqual(['DP-001']);
     expect(JSON.stringify(a.body)).not.toMatch(
-      /penggunaId|email|kataSandi|tokenQr|kodeTiket|tiketId|Pasien/,
+      /penggunaId|email|kataSandi|tokenQr|kodeTiket|tiketId/,
     );
     await request(http())
       .get(`/api/v1/portal-dokter/jadwal?dokterId=${drB}`)

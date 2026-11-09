@@ -130,7 +130,7 @@ class PatientHomeAppointmentCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 11,
                               height: 1.25,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w400,
                               color: PatientDesign.primary,
                             ),
                           ),
@@ -245,7 +245,7 @@ class _AppointmentFact extends StatelessWidget {
             fontSize: 12,
             height: 1.35,
             color: color,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ),

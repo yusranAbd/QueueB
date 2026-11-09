@@ -336,8 +336,10 @@ class _PatientScrollShellState extends State<PatientScrollShell>
           children: [
             if (widget.header != null)
               _bar(
-                SizedBox(
-                  height: widget.header!.preferredSize.height,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: widget.header!.preferredSize.height,
+                  ),
                   child: MediaQuery.removePadding(
                     context: context,
                     removeTop: true,

@@ -10,6 +10,7 @@ import 'admin_schema.dart';
 import 'admin_service_readiness.dart';
 import 'service_category.dart';
 import 'admin_practice_agenda.dart';
+import 'admin_practice_availability.dart';
 import 'admin_schedules.dart';
 import 'admin_ui.dart';
 import 'api.dart';
@@ -17,6 +18,7 @@ import 'mobile_ui.dart';
 import 'config.dart';
 import 'widgets.dart';
 import 'doctor_professional.dart';
+import 'doctor_account.dart' show AdminStaffPasswordResetDialog;
 
 Json clinicOf(Json row, String path) => switch (path) {
   '/layanan' => row,
@@ -191,12 +193,43 @@ class AdminDataView extends StatefulWidget {
 
 class _AdminDataViewState extends State<AdminDataView> {
   String search = '', status = '', clinic = '', doctor = '';
+  bool slotHistory = false;
+
+  Future<void> resetPetugasPassword(Json assignment) async {
+    if (widget.busy) return;
+    final account = object(assignment['petugas']);
+    final id = assignment['petugasId'] ?? account['id'];
+    if (id is! String || id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Akun petugas tidak ditemukan.')),
+      );
+      return;
+    }
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AdminStaffPasswordResetDialog(
+        api: widget.api,
+        accountId: id,
+        accountName: '${account['nama'] ?? 'Petugas'}',
+        roleLabel: 'Petugas',
+      ),
+    );
+    if (!mounted || result != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Kata sandi petugas berhasil direset. Sesi lama dicabut.',
+        ),
+      ),
+    );
+  }
 
   String get path => widget.resource.path;
+  bool get slots => path == '/slot-praktik';
   bool get sessions => ['/jadwal-praktik', '/slot-praktik'].contains(path);
-  List<Json> get source => path == '/slot-praktik'
-      ? widget.catalog['/jadwal-praktik'] ?? []
-      : widget.data;
+  List<Json> get source =>
+      slots ? widget.catalog['/jadwal-praktik'] ?? [] : widget.data;
   String clinicId(Json r) =>
       '${clinicOf(r, path == '/slot-praktik' ? '/jadwal-praktik' : path)['id'] ?? r['layananId'] ?? object(r['dokterLayanan'])['layananId'] ?? object(r['loket'])['layananId'] ?? ''}';
   String clinicName(Json r) {
@@ -241,6 +274,7 @@ class _AdminDataViewState extends State<AdminDataView> {
       object(r['petugas'])['email'],
       object(r['loket'])['nama'],
       r['lokasi'],
+      if (slots) dateOnly(r['tanggal']),
       if (path == '/dokter')
         ...rows(r['dokterLayanan']).map((l) => object(l['layanan'])['nama']),
     ].join(' ').toLowerCase();
@@ -277,6 +311,16 @@ class _AdminDataViewState extends State<AdminDataView> {
               Icons.manage_accounts_outlined,
               () => widget.onDoctorAccount!(row),
               enabled: row['aktif'] == true || row['penggunaId'] != null,
+            ),
+          if (path == '/penugasan-petugas')
+            AdminRowAction(
+              'Reset kata sandi petugas',
+              Icons.lock_reset_outlined,
+              () => resetPetugasPassword(row),
+              enabled:
+                  object(row['petugas'])['aktif'] != false &&
+                  (row['petugasId'] is String ||
+                      object(row['petugas'])['id'] is String),
             ),
           if (row['aktif'] == true)
             AdminRowAction(
@@ -626,7 +670,9 @@ class _AdminDataViewState extends State<AdminDataView> {
             AdminPagedRows(
               rows: items
                 ..sort(
-                  (a, b) => '${a['mulaiPada']}'.compareTo('${b['mulaiPada']}'),
+                  slotHistory
+                      ? (a, b) => compareAdminPracticeStart(b, a)
+                      : compareAdminPracticeStart,
                 ),
               builder: (r) => AdminSlotSession(
                 key: ValueKey('${r['id']}'),
@@ -648,7 +694,13 @@ class _AdminDataViewState extends State<AdminDataView> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = source.where(matches).toList();
+    final now = widget.api.config.now;
+    final scoped = slots
+        ? source
+              .where((r) => adminPracticeCanAddSlot(r, now) != slotHistory)
+              .toList()
+        : source;
+    final filtered = scoped.where(matches).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -673,6 +725,8 @@ class _AdminDataViewState extends State<AdminDataView> {
                       decoration: InputDecoration(
                         labelText: path == '/dokter'
                             ? 'Cari dokter atau spesialisasi'
+                            : slots
+                            ? 'Cari dokter, ruang, atau tanggal'
                             : 'Cari nama atau kode',
                         prefixIcon: const Icon(Icons.search),
                       ),
@@ -731,15 +785,47 @@ class _AdminDataViewState extends State<AdminDataView> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
-          child: Text(
-            path == '/dokter'
-                ? '${filtered.length} dari ${source.length} dokter'
-                : '${filtered.length} dari ${source.length} ${path == '/slot-praktik' ? 'sesi praktik' : 'data'}',
-            style: Theme.of(context).textTheme.bodySmall,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (slots) ...[
+                ChoiceChip(
+                  label: const Text('Aktif dan mendatang'),
+                  selected: !slotHistory,
+                  onSelected: widget.busy
+                      ? null
+                      : (_) => setState(() => slotHistory = false),
+                ),
+                ChoiceChip(
+                  label: const Text('Riwayat / nonaktif'),
+                  selected: slotHistory,
+                  onSelected: widget.busy
+                      ? null
+                      : (_) => setState(() => slotHistory = true),
+                ),
+              ],
+              Text(
+                '${filtered.length} dari ${scoped.length} '
+                '${slots
+                    ? 'sesi praktik'
+                    : path == '/dokter'
+                    ? 'dokter'
+                    : 'data'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
         if (filtered.isEmpty && !widget.busy)
-          const AdminNotice('Tidak ada data yang sesuai filter.'),
+          AdminNotice(
+            slots && scoped.isEmpty
+                ? slotHistory
+                      ? 'Belum ada sesi berakhir atau nonaktif.'
+                      : 'Belum ada sesi aktif yang masih berlangsung atau mendatang.'
+                : 'Tidak ada data yang sesuai filter.',
+          ),
         if (path == '/jadwal-praktik')
           AdminPracticeAgenda(
             rows: filtered,
@@ -761,7 +847,7 @@ class _AdminDataViewState extends State<AdminDataView> {
             clinicId,
             clinicName,
             (items) => sessions ? doctorGroups(items) : [table(items)],
-            'clinic',
+            slots && slotHistory ? 'slot-history-clinic' : 'clinic',
           ),
       ],
     );
@@ -854,9 +940,17 @@ class _AdminSlotSessionState extends State<AdminSlotSession> {
   Widget content(BuildContext context, SlotSessionState state) {
     final loading = state.loading;
     final error = state.error?.toString();
-    final visible = state.slots
-        .where((s) => widget.status.isEmpty || '${s['aktif']}' == widget.status)
-        .toList();
+    final now = widget.api.config.now;
+    final currentSession = adminPracticeCanAddSlot(widget.session, now);
+    final visible = <Json>[], history = <Json>[];
+    for (final slot in state.slots) {
+      if (widget.status.isNotEmpty && '${slot['aktif']}' != widget.status) {
+        continue;
+      }
+      final end = DateTime.tryParse('${slot['selesaiPada']}');
+      final ended = end != null && end.isUtc && !end.isAfter(now);
+      (currentSession && ended ? history : visible).add(slot);
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
@@ -883,16 +977,13 @@ class _AdminSlotSessionState extends State<AdminSlotSession> {
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.session['aktif'] == true ? 'Aktif' : 'Nonaktif',
-              style: const TextStyle(fontSize: 11, color: QueueBStyle.muted),
-            ),
-            const SizedBox(width: 6),
-            Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20),
-          ],
+        subtitle: Text(
+          adminPracticeStatus(widget.session, now),
+          style: const TextStyle(fontSize: 11, color: QueueBStyle.muted),
+        ),
+        trailing: Icon(
+          expanded ? Icons.expand_less : Icons.expand_more,
+          size: 20,
         ),
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
         onExpansionChanged: (v) {
@@ -913,85 +1004,80 @@ class _AdminSlotSessionState extends State<AdminSlotSession> {
                     !loading &&
                     state.load != SlotLoadStatus.failure &&
                     visible.isEmpty)
-                  const AdminNotice('Tidak ada slot yang sesuai filter.'),
-                AdminTable(
-                  rows: visible,
-                  pageSize: 5,
-                  numberedPagination: true,
-                  hideFooterWhenSinglePage: true,
-                  paginationLabel: 'slot',
-                  columns: [
-                    AdminColumn(
-                      'Jam slot',
-                      (s) =>
-                          '${clockOnly(widget.api.config.localInput(s['mulaiPada']))} – ${clockOnly(widget.api.config.localInput(s['selesaiPada']))}',
-                    ),
-                    AdminColumn(
-                      'Kapasitas',
-                      (s) => s['kapasitas'],
-                      numeric: true,
-                    ),
-                    AdminColumn(
-                      'Terisi',
-                      (s) => s['jumlahJanjiTemu'] ?? '—',
-                      numeric: true,
-                    ),
-                    AdminColumn(
-                      'Sisa',
-                      (s) => s['sisaKapasitas'] ?? '—',
-                      numeric: true,
-                    ),
-                    AdminColumn(
-                      'Ketersediaan',
-                      (s) =>
-                          s['tersedia'] == true ? 'Tersedia' : 'Tidak tersedia',
-                    ),
-                    AdminColumn(
-                      'Status',
-                      (s) => s['aktif'] == true ? 'Aktif' : 'Nonaktif',
-                    ),
-                    AdminColumn(
-                      'Aksi',
-                      (_) => '',
-                      cell: (s) => AdminRowActions(
-                        tooltip: 'Aksi slot ${s['id']}',
-                        busy: widget.busy || state.mutating,
-                        actions: [
-                          AdminRowAction(
-                            'Ubah',
-                            Icons.edit_outlined,
-                            () => widget.onEdit({
-                              ...s,
-                              'jadwalPraktikId': state.sessionId,
-                            }),
-                          ),
-                          if (s['aktif'] == true)
-                            AdminRowAction(
-                              'Nonaktifkan',
-                              Icons.block_outlined,
-                              () => widget.onDeactivate({
-                                ...s,
-                                'jadwalPraktikId': state.sessionId,
-                              }),
-                              danger: true,
-                            ),
-                          if (widget.onDelete != null)
-                            AdminRowAction(
-                              'Hapus',
-                              Icons.delete_outline,
-                              () => widget.onDelete!({
-                                ...s,
-                                'jadwalPraktikId': state.sessionId,
-                              }),
-                              danger: true,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  AdminNotice(
+                    history.isEmpty ? 'Tidak ada slot yang sesuai filter.' : 'Slot yang sesuai filter sudah berakhir. Lihat riwayat slot.',
+                  ),
+                if (visible.isNotEmpty || history.isEmpty)
+                  _slotTable(visible, state),
+                if (history.isNotEmpty)
+                  AdminDataGroup(
+                    key: const ValueKey('slot-history'),
+                    title: 'Riwayat slot',
+                    subtitle: '${history.length} slot',
+                    children: () => [
+                      _slotTable(history.reversed.toList(), state),
+                    ],
+                  ),
               ],
       ),
     );
   }
+
+  Widget _slotTable(List<Json> slots, SlotSessionState state) => AdminTable(
+    rows: slots,
+    pageSize: 5,
+    numberedPagination: true,
+    hideFooterWhenSinglePage: true,
+    paginationLabel: 'slot',
+    columns: [
+      AdminColumn(
+        'Jam slot',
+        (s) =>
+            '${clockOnly(widget.api.config.localInput(s['mulaiPada']))} – ${clockOnly(widget.api.config.localInput(s['selesaiPada']))}',
+      ),
+      AdminColumn('Kapasitas', (s) => s['kapasitas'], numeric: true),
+      AdminColumn('Terisi', (s) => s['jumlahJanjiTemu'] ?? '—', numeric: true),
+      AdminColumn('Sisa', (s) => s['sisaKapasitas'] ?? '—', numeric: true),
+      AdminColumn(
+        'Ketersediaan',
+        (s) => s['tersedia'] == true ? 'Tersedia' : 'Tidak tersedia',
+      ),
+      AdminColumn('Status', (s) => s['aktif'] == true ? 'Aktif' : 'Nonaktif'),
+      AdminColumn(
+        'Aksi',
+        (_) => '',
+        cell: (s) => AdminRowActions(
+          tooltip: 'Aksi slot ${s['id']}',
+          busy: widget.busy || state.mutating,
+          actions: [
+            AdminRowAction(
+              'Ubah',
+              Icons.edit_outlined,
+              () => widget.onEdit({...s, 'jadwalPraktikId': state.sessionId}),
+            ),
+            if (s['aktif'] == true)
+              AdminRowAction(
+                'Nonaktifkan',
+                Icons.block_outlined,
+                () => widget.onDeactivate({
+                  ...s,
+                  'jadwalPraktikId': state.sessionId,
+                }),
+                danger: true,
+              ),
+            if (widget.onDelete != null)
+              AdminRowAction(
+                'Hapus',
+                Icons.delete_outline,
+                () => widget.onDelete!({
+                  ...s,
+                  'jadwalPraktikId': state.sessionId,
+                }),
+                danger: true,
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

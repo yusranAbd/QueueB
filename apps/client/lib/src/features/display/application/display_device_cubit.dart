@@ -36,7 +36,7 @@ class DisplayDeviceCubit extends Cubit<DisplayDeviceState> {
               ? DisplayDevicePhase.uncertain
               : DisplayDevicePhase.unpaired,
           error: _uncertain
-              ? 'Hasil aktivasi belum dapat dipastikan. Periksa sesi tersimpan; jangan mengirim kode yang sama berulang.'
+              ? 'Hasil aktivasi belum dapat dipastikan. Pulihkan sesi perangkat sebelum mencoba kode baru.'
               : null,
         ),
       );

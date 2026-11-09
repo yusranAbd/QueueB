@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -457,6 +463,139 @@ describe('AuthService', () => {
           dicabutPada: expect.any(Date),
         },
       });
+    });
+  });
+
+  // ========================================
+  // 5. ADMIN RESET KATA SANDI STAF (regression P0-1)
+  // ========================================
+
+  describe('Admin reset kata sandi staf', () => {
+    // Harus sama dengan CHECK audit_sesi pada migrasi
+    // 20261102_notifications_and_session_audit.
+    const CHECK_AKSI = [
+      'LOGIN',
+      'REFRESH',
+      'LOGOUT',
+      'CABUT_SESI',
+      'BACA_AUDIT',
+    ];
+    const CHECK_HASIL = ['BERHASIL', 'DITOLAK', 'ERROR'];
+    const CHECK_KLIEN = ['WEB', 'ANDROID', 'IOS', 'DESKTOP', 'UNKNOWN'];
+    const admin = {
+      id: '5f0b8a52-6a0e-4a43-9d1a-0d5c1f7d2a11',
+      peran: 'ADMIN',
+    };
+    const targetId = '0c3c5b3e-2f7b-4a8e-9a65-3f1b9a7c4d22';
+    const refs = {
+      target: '9b1d7f0e-4c2a-4f6b-8e3d-1a2b3c4d5e6f',
+      actor: '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d',
+    };
+
+    const siapkanTx = (peran = 'PETUGAS') => {
+      const tx = {
+        $queryRaw: jest
+          .fn()
+          .mockResolvedValue([{ id: targetId, peran, audit_ref: refs.target }]),
+        dokter: { count: jest.fn().mockResolvedValue(1) },
+        pengguna: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({
+              auditRef: refs.actor,
+              peran: 'ADMIN',
+              aktif: true,
+            }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        sesiPengguna: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+        auditSesi: { create: jest.fn().mockResolvedValue({}) },
+      };
+      (prismaMock.$transaction as jest.Mock).mockImplementation(
+        (fn: (t: typeof tx) => unknown) => fn(tx),
+      );
+      passwordMock.hash.mockResolvedValue('hash-baru');
+      return tx;
+    };
+
+    it('mencabut semua sesi dan menulis audit yang lolos CHECK constraint', async () => {
+      const tx = siapkanTx();
+      const hasil = await service.adminResetStaffPassword(
+        admin,
+        targetId,
+        'Baru1234',
+        {
+          requestId: '7d6c5b4a-3e2f-4a1b-9c8d-7e6f5a4b3c2d',
+          klien: 'WEB',
+        },
+      );
+
+      expect(hasil).toEqual({
+        message: 'Kata sandi berhasil direset. Pengguna harus login kembali.',
+        sessionsRevoked: 2,
+      });
+      expect(tx.pengguna.update).toHaveBeenCalledWith({
+        where: { id: targetId },
+        data: { kataSandiHash: 'hash-baru' },
+      });
+      expect(tx.sesiPengguna.updateMany).toHaveBeenCalledWith({
+        where: { penggunaId: targetId, dicabutPada: null },
+        data: { dicabutPada: expect.any(Date) },
+      });
+      const audit = tx.auditSesi.create.mock.calls[0][0].data;
+      expect(CHECK_AKSI).toContain(audit.aksi);
+      expect(CHECK_HASIL).toContain(audit.hasil);
+      expect(CHECK_KLIEN).toContain(audit.klien);
+      expect(audit.sumber).toBe('UNKNOWN');
+      expect(audit.alasan.length).toBeLessThanOrEqual(40);
+      expect(audit).toMatchObject({
+        aksi: 'CABUT_SESI',
+        hasil: 'BERHASIL',
+        alasan: 'PASSWORD_CHANGED',
+        klien: 'WEB',
+        akunRef: refs.target,
+        aktorRef: refs.actor,
+        jumlahSesi: 2,
+      });
+      expect(JSON.stringify(audit)).not.toContain('Baru1234');
+    });
+
+    it('memakai klien UNKNOWN bila header klien tidak dikenal', async () => {
+      const tx = siapkanTx('DOKTER');
+      await service.adminResetStaffPassword(admin, targetId, 'Baru1234');
+      expect(tx.auditSesi.create.mock.calls[0][0].data.klien).toBe('UNKNOWN');
+    });
+
+    it.each([
+      ['bukan ADMIN', { ...admin, peran: 'PETUGAS' }, targetId],
+      ['ADMIN mereset dirinya sendiri', admin, admin.id],
+    ])('menolak %s tanpa menulis apa pun', async (_label, actor, target) => {
+      const tx = siapkanTx();
+      await expect(
+        service.adminResetStaffPassword(actor, target, 'Baru1234'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(passwordMock.hash).not.toHaveBeenCalled();
+      expect(tx.auditSesi.create).not.toHaveBeenCalled();
+    });
+
+    it.each(['Pendek1', 'Panjang123', 12345678, undefined])(
+      'menolak kata sandi bukan string tepat 8 karakter (%p)',
+      async (value) => {
+        const tx = siapkanTx();
+        await expect(
+          service.adminResetStaffPassword(admin, targetId, value),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(tx.sesiPengguna.updateMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('menolak target USER/ADMIN sebagai tidak ditemukan', async () => {
+      const tx = siapkanTx('USER');
+      await expect(
+        service.adminResetStaffPassword(admin, targetId, 'Baru1234'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(tx.pengguna.update).not.toHaveBeenCalled();
+      expect(tx.auditSesi.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -104,7 +104,7 @@ class _AdminDisplayPageState extends State<AdminDisplayPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Berlaku hingga ${widget.api.config.instantLabel(activation.expiresAt.toIso8601String())} (${widget.api.config.serviceTimeZone}), maksimal 5 menit.',
+                    'Berlaku hingga ${widget.api.config.instantLabel(activation.expiresAt.toIso8601String())}, maksimal 5 menit.',
                   ),
                   const Text(
                     'Berikan melalui saluran aman. Kode hanya ditampilkan sekarang; jangan bagikan tangkapan layar atau menaruhnya dalam URL.',

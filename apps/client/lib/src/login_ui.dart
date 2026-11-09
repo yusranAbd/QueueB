@@ -11,6 +11,7 @@ abstract final class LoginStyle {
   static const cardWidth = 420.0;
   static const cardRadius = 12.0;
   static const fieldRadius = 6.0;
+  static const displayButtonClearance = 80.0;
   static const inputText = TextStyle(fontSize: 14, color: PatientDesign.ink);
 
   static bool compact(BuildContext context) =>
@@ -35,27 +36,36 @@ class LoginLayout extends StatelessWidget {
       ),
     ),
     child: LayoutBuilder(
-      builder: (context, bounds) => SingleChildScrollView(
-        key: const ValueKey('login-scroll'),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: bounds.maxHeight),
-          child: Center(
+      builder: (context, bounds) {
+        final horizontal = bounds.maxWidth < 360 ? 12.0 : 20.0;
+        final vertical = LoginStyle.compact(context) ? 12.0 : 24.0;
+        final buttonBelowCard =
+            bounds.maxWidth <
+            LoginStyle.cardWidth + 2 * LoginStyle.displayButtonClearance;
+        return SingleChildScrollView(
+          key: const ValueKey('login-scroll'),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: bounds.maxHeight),
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: bounds.maxWidth < 360 ? 12 : 20,
-                vertical: LoginStyle.compact(context) ? 12 : 24,
+              padding: EdgeInsets.fromLTRB(
+                horizontal,
+                vertical,
+                horizontal,
+                buttonBelowCard ? LoginStyle.displayButtonClearance : vertical,
               ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: LoginStyle.cardWidth,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: LoginStyle.cardWidth,
+                  ),
+                  child: child,
                 ),
-                child: child,
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     ),
   );
 }
@@ -75,7 +85,10 @@ class LoginFormCard extends StatelessWidget {
       borderSide: const BorderSide(color: LoginStyle.rule),
     );
     return Container(
-      padding: EdgeInsets.all(compact ? 24 : 28),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 20 : 24,
+        vertical: 20,
+      ),
       decoration: BoxDecoration(
         color: LoginStyle.white,
         borderRadius: BorderRadius.circular(LoginStyle.cardRadius),
@@ -138,19 +151,6 @@ class LoginFormCard extends StatelessWidget {
               shape: shape,
               textStyle: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: PatientDesign.primary,
-              side: const BorderSide(color: PatientDesign.primary, width: 1.2),
-              minimumSize: const Size(48, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              shape: shape,
-              textStyle: const TextStyle(
-                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),

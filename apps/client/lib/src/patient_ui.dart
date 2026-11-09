@@ -694,7 +694,7 @@ class PatientInfoRow extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   color: PatientDesign.navy,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -752,7 +752,7 @@ class AppointmentReview extends StatelessWidget {
             PatientInfoRow(
               icon: Icons.schedule,
               title: 'Waktu',
-              value: '${patientTime(slot, config)} · ${config.serviceTimeZone}',
+              value: patientTime(slot, config),
             ),
             const SizedBox(height: 12),
             const MobileNotice(

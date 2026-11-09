@@ -411,7 +411,7 @@ class _AdminInsightsPageState extends State<AdminInsightsPage> {
     final summary = object(snapshot['ringkasan']);
     return [
       Text(
-        'Diperoleh: ${widget.api.config.instantLabel(snapshot['diperolehPada'])} · ${object(snapshot['periode'])['zonaWaktu']}',
+        'Diperoleh: ${widget.api.config.instantLabel(snapshot['diperolehPada'])}',
       ),
       const SizedBox(height: 8),
       Wrap(

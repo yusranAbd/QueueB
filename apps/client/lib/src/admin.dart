@@ -8,6 +8,7 @@ import 'admin_schema.dart';
 import 'service_category.dart';
 import 'admin_display.dart';
 import 'admin_practice_form.dart';
+import 'admin_practice_availability.dart';
 import 'doctor_account.dart';
 import 'admin_data.dart';
 import 'admin_navigation.dart';
@@ -42,7 +43,6 @@ class AdminPage extends StatefulWidget {
     super.key,
     required this.api,
     this.initialSection = -1,
-    this.onProfile,
     this.section,
     this.onSection,
     this.routeChild,
@@ -52,7 +52,6 @@ class AdminPage extends StatefulWidget {
   final ValueChanged<int>? onSection;
   final Widget? routeChild;
   final int initialSection;
-  final VoidCallback? onProfile;
   @override
   State<AdminPage> createState() => _AdminPageState();
 }
@@ -63,6 +62,11 @@ class _AdminPageState extends State<AdminPage> {
   int staffTab = 0;
   bool collapsed = false;
   bool dashboardExporting = false;
+  final _serviceSetupKey = GlobalKey();
+  bool _setupOpen = false;
+  bool _setupOpening = false;
+  bool _setupBusy = false;
+  int _setupRevision = 0;
   late final AdminCatalogRepository catalogRepository;
   late final InsightsCubit dashboardActivity;
   late final List<AdminCatalogCubit> catalogCubits;
@@ -98,7 +102,7 @@ class _AdminPageState extends State<AdminPage> {
             : assignments
       : null;
   List<Json> get data => masterCubit?.rows ?? const [];
-  String? session, _error, _message;
+  String? _error, _message;
   QueueBMotionOnce? _messageMotion;
   String? get message => _message;
   set message(String? value) {
@@ -124,7 +128,7 @@ class _AdminPageState extends State<AdminPage> {
       ? displayManagement.state.busy
       : masterCubit?.state.busy ?? _loading;
   bool get navigationLocked =>
-      !catalogRepository.active || (loading && !_readingSection);
+      !catalogRepository.active || _setupBusy || (loading && !_readingSection);
   set loading(bool value) => _loading = value;
   int revision = 0;
   int _requestRevision = 0;
@@ -164,7 +168,7 @@ class _AdminPageState extends State<AdminPage> {
         revision++;
         if (!catalogRepository.active) {
           _requestRevision++;
-          session = null;
+          _resetServiceSetup();
           _error = null;
           message = null;
           _loading = false;
@@ -243,14 +247,6 @@ class _AdminPageState extends State<AdminPage> {
               : e.key.settled,
         ),
       );
-      final next = catalog;
-      if (mounted &&
-          current == _requestRevision &&
-          selectedResource.path == '/slot-praktik') {
-        if (!next['/jadwal-praktik']!.any((v) => v['id'] == session)) {
-          session = next['/jadwal-praktik']!.firstOrNull?['id'];
-        }
-      }
     } catch (e) {
       if (mounted && current == _requestRevision) setState(() => error = '$e');
     } finally {
@@ -301,9 +297,9 @@ class _AdminPageState extends State<AdminPage> {
                 resource: resource,
                 row: row,
                 catalog: catalog,
-                initialSession: session,
                 catalogSource:
-                    resource.path == '/jadwal-layanan' ||
+                    slot ||
+                        resource.path == '/jadwal-layanan' ||
                         resource.path == '/penugasan-petugas'
                     ? catalogRepository
                     : null,
@@ -355,12 +351,25 @@ class _AdminPageState extends State<AdminPage> {
       AdminSetupAction.createService: 0,
       AdminSetupAction.editService: 0,
       AdminSetupAction.addRoom: 2,
+      AdminSetupAction.editHours: 3,
       AdminSetupAction.addSlot: 5,
     };
     bool? changed;
     final index = resourcesByAction[action];
     if (index != null) {
-      final row = action == AdminSetupAction.editService ? clinic : null;
+      final row = switch (action) {
+        AdminSetupAction.editService => clinic,
+        AdminSetupAction.editHours when relatedId != null =>
+          catalog['/jadwal-layanan']
+              ?.where(
+                (r) => r['id'] == relatedId && r['layananId'] == serviceId,
+              )
+              .firstOrNull,
+        _ => null,
+      };
+      if (action == AdminSetupAction.editHours && row == null) {
+        throw const ApiException(404, 'Jadwal tidak tersedia. Muat ulang.');
+      }
       changed = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -373,10 +382,24 @@ class _AdminPageState extends State<AdminPage> {
               ? {'layananId': serviceId!}
               : const {},
           initialSession: action == AdminSetupAction.addSlot ? relatedId : null,
-          onSave: index == 5
-              ? (body) => slotsById('${body['jadwalPraktikId']}').save(body)
-              : (body) =>
-                    catalogCubits[index].save(body, id: row?['id'] as String?),
+          slotServiceId: action == AdminSetupAction.addSlot ? serviceId : null,
+          catalogSource: index == 3 || index == 5 ? catalogRepository : null,
+          onSave: (body) {
+            if (index == 5) {
+              return slotsById('${body['jadwalPraktikId']}').save(body);
+            }
+            if (action == AdminSetupAction.editHours && row != null) {
+              body.removeWhere((key, value) {
+                final previous = row[key];
+                return value ==
+                    (key == 'jamBuka' || key == 'jamTutup'
+                        ? clockOnly(previous)
+                        : previous);
+              });
+              if (body.isEmpty) return Future.value(row);
+            }
+            return catalogCubits[index].save(body, id: row?['id'] as String?);
+          },
         ),
       );
     } else if (action == AdminSetupAction.addHours) {
@@ -444,29 +467,43 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
+  Future<void> _refreshSetupCatalog() => catalogRepository.refresh([
+    '/layanan',
+    '/dokter',
+    '/loket',
+    '/jadwal-layanan',
+    '/jadwal-praktik',
+  ]);
+
+  void _resetServiceSetup() {
+    _setupRevision++;
+    _setupOpen = false;
+    _setupOpening = false;
+    _setupBusy = false;
+  }
+
+  void _closeIntegratedServiceSetup() {
+    if (!_setupOpen || _setupBusy) return;
+    setState(_resetServiceSetup);
+  }
+
   Future<void> openIntegratedServiceSetup() async {
-    if (navigationLocked || !catalogRepository.active) return;
+    if (navigationLocked || _setupOpen || _setupOpening) return;
+    final revision = ++_setupRevision;
+    bool current() =>
+        mounted && revision == _setupRevision && catalogRepository.active;
+    setState(() {
+      _setupOpening = true;
+      error = null;
+    });
     try {
-      await catalogRepository.refresh([
-        '/layanan',
-        '/dokter',
-        '/loket',
-        '/jadwal-layanan',
-        '/jadwal-praktik',
-      ]);
+      await _refreshSetupCatalog();
+      if (current()) setState(() => _setupOpen = true);
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
-      return;
+      if (current()) setState(() => error = '$e');
+    } finally {
+      if (current()) setState(() => _setupOpening = false);
     }
-    if (!mounted || !catalogRepository.active) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AdminServiceSetup(
-        repository: catalogRepository,
-        onAction: _runServiceSetupAction,
-      ),
-    );
   }
 
   Future<void> deleteRow(Json row) async {
@@ -599,6 +636,7 @@ class _AdminPageState extends State<AdminPage> {
   void didUpdateWidget(covariant AdminPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.section != oldWidget.section) {
+      _resetServiceSetup();
       message = null;
       error = null;
       if (selected >= 7) {
@@ -614,6 +652,8 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   void selectResource(int value) {
+    if (_setupBusy || !catalogRepository.active) return;
+    if (_setupOpen || _setupOpening) setState(_resetServiceSetup);
     if (value == selected) return;
     if (widget.onSection case final navigate?) {
       navigate(value);
@@ -643,17 +683,12 @@ class _AdminPageState extends State<AdminPage> {
           height: MediaQuery.sizeOf(context).height * .8,
           child: AdminNavigation(
             selected: selected,
-            onSetup: loading
+            setupSelected: _setupOpen,
+            onSetup: navigationLocked
                 ? null
                 : () {
                     Navigator.pop(sheetContext);
                     openIntegratedServiceSetup();
-                  },
-            onProfile: widget.onProfile == null
-                ? null
-                : () {
-                    Navigator.pop(sheetContext);
-                    widget.onProfile!();
                   },
             onSelect: navigationLocked
                 ? null
@@ -739,7 +774,7 @@ class _AdminPageState extends State<AdminPage> {
         OutlinedButton.icon(
           onPressed: navigationLocked ? null : openIntegratedServiceSetup,
           icon: const Icon(Icons.account_tree_outlined, size: 18),
-          label: const Text('Kelola Terpadu'),
+          label: const Text('Kelola Layanan Terpadu'),
         ),
       FilledButton.icon(
         onPressed: loading ? null : () => edit(),
@@ -892,6 +927,51 @@ class _AdminPageState extends State<AdminPage> {
                 ),
             ],
           );
+    final workspace = Stack(
+      fit: StackFit.expand,
+      children: [
+        IndexedStack(
+          index: _setupOpen ? 1 : 0,
+          sizing: StackFit.expand,
+          children: [
+            ExcludeFocus(
+              excluding: _setupOpen,
+              child: TickerMode(enabled: !_setupOpen, child: content),
+            ),
+            if (_setupOpen)
+              PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) _closeIntegratedServiceSetup();
+                },
+                child: AdminServiceSetup(
+                  key: _serviceSetupKey,
+                  repository: catalogRepository,
+                  onAction: _runServiceSetupAction,
+                  onClose: _closeIntegratedServiceSetup,
+                  onOpenDisplay: () => selectResource(7),
+                  onRefresh: _refreshSetupCatalog,
+                  onBusyChanged: (busy) {
+                    if (mounted && _setupOpen && _setupBusy != busy) {
+                      setState(() => _setupBusy = busy);
+                    }
+                  },
+                ),
+              ),
+          ],
+        ),
+        if (_setupOpening)
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              semanticsLabel: 'Memuat konfigurasi layanan',
+            ),
+          ),
+      ],
+    );
     return Theme(
       data: AdminStyle.theme,
       child: DefaultTabController(
@@ -909,10 +989,8 @@ class _AdminPageState extends State<AdminPage> {
                           color: Colors.white,
                           child: AdminNavigation(
                             selected: selected,
-                            onSetup: loading
-                                ? null
-                                : openIntegratedServiceSetup,
-                            onProfile: widget.onProfile,
+                            setupSelected: _setupOpen,
+                            onSetup: openIntegratedServiceSetup,
                             onSelect: navigationLocked ? null : selectResource,
                             collapsed: collapsed,
                             onToggle: () =>
@@ -921,7 +999,7 @@ class _AdminPageState extends State<AdminPage> {
                         ),
                       ),
                       const VerticalDivider(width: 1),
-                      Expanded(child: content),
+                      Expanded(child: workspace),
                     ],
                   )
                 : Column(
@@ -945,7 +1023,9 @@ class _AdminPageState extends State<AdminPage> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                adminSectionTitle(selected),
+                                _setupOpen
+                                    ? 'Kelola Layanan Terpadu'
+                                    : adminSectionTitle(selected),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -953,7 +1033,7 @@ class _AdminPageState extends State<AdminPage> {
                           ],
                         ),
                       ),
-                      Expanded(child: content),
+                      Expanded(child: workspace),
                     ],
                   ),
           ),
@@ -989,6 +1069,7 @@ class _AdminEditor extends StatefulWidget {
     required this.catalog,
     this.row,
     this.initialSession,
+    this.slotServiceId,
     this.onSave,
     this.catalogSource,
     this.initialValues = const {},
@@ -1001,6 +1082,7 @@ class _AdminEditor extends StatefulWidget {
   final Map<String, List<Json>> catalog;
   final Json? row;
   final String? initialSession;
+  final String? slotServiceId;
   @override
   State<_AdminEditor> createState() => _AdminEditorState();
 }
@@ -1014,6 +1096,7 @@ class _AdminEditorState extends State<_AdminEditor> {
   bool busy = false;
   String? error;
   bool get editing => widget.row != null;
+  bool get _creatingSlot => widget.resource.path == '/slot-praktik' && !editing;
   List<AdminField> get fields => widget.resource.fields
       .where((f) => !(editing && f.createOnly) && !(!editing && f.editOnly))
       .toList();
@@ -1086,17 +1169,55 @@ class _AdminEditorState extends State<_AdminEditor> {
             ('${l['id']}', '${label(d)} · ${label(object(l['layanan']))}'),
       ];
     }
-    if (field.key == 'jadwalPraktikId') {
-      return (catalog['/jadwal-praktik'] ?? [])
-          .map(
-            (v) => (
-              '${v['id']}',
-              '${dateOnly(v['tanggal'])} · ${label(object(object(v['dokterLayanan'])['dokter']))} · ${label(object(v['loket']))}',
-            ),
-          )
-          .toList();
-    }
     return [];
+  }
+
+  Iterable<Json> _eligibleSlotSessions(DateTime now) =>
+      (catalog['/jadwal-praktik'] ?? const <Json>[]).where((session) {
+        final link = object(session['dokterLayanan']);
+        final service = link['layananId'] ?? object(link['layanan'])['id'];
+        return (widget.slotServiceId == null ||
+                widget.slotServiceId == service) &&
+            adminPracticeCanAddSlot(session, now);
+      });
+
+  Widget _slotSessionField(AdminField field) {
+    final config = widget.api.config;
+    final sessions = _eligibleSlotSessions(config.now).toList()
+      ..sort(compareAdminPracticeStart);
+    final choices = sessions.map((session) {
+      final start = config.localInput(session['mulaiPada']);
+      final end = config.localInput(session['selesaiPada']);
+      final link = object(session['dokterLayanan']);
+      return (
+        '${session['id']}',
+        '${dateOnly(start)} · ${clockOnly(start)}–${clockOnly(end)} · '
+            '${label(object(link['dokter']))} · ${label(object(link['layanan']))} · '
+            '${label(object(session['loket']))}',
+      );
+    }).toList();
+    final value = values[field.key];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AdminSearchChoice(
+          label: field.title,
+          choices: choices,
+          value: choices.any((choice) => choice.$1 == value) ? value : null,
+          required: field.required,
+          onChanged: busy || choices.isEmpty
+              ? null
+              : (id) => setState(() => values[field.key] = id ?? ''),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          choices.isEmpty
+              ? 'Belum ada sesi aktif yang dapat dipilih. Tambahkan jadwal praktik yang belum berakhir.'
+              : 'Cari tanggal, nama dokter, poliklinik, atau ruang.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
   }
 
   Future<void> pick(AdminField f) async {
@@ -1238,7 +1359,9 @@ class _AdminEditorState extends State<_AdminEditor> {
     );
   }
 
-  Widget field(AdminField f) => f.key == 'petugasId'
+  Widget field(AdminField f) => f.key == 'jadwalPraktikId'
+      ? _slotSessionField(f)
+      : f.key == 'petugasId'
       ? staffField(f)
       : switch (f.kind) {
           FieldKind.flag => SwitchListTile(
@@ -1283,6 +1406,14 @@ class _AdminEditorState extends State<_AdminEditor> {
 
   Future<void> save() async {
     if (busy || !form.currentState!.validate()) return;
+    if (_creatingSlot &&
+        !_eligibleSlotSessions(widget.api.config.now)
+            .any((session) => session['id'] == values['jadwalPraktikId'])) {
+      setState(
+        () => error = 'Sesi sudah berakhir atau nonaktif. Pilih sesi lain.',
+      );
+      return;
+    }
     setState(() {
       busy = true;
       error = null;
@@ -1294,6 +1425,13 @@ class _AdminEditorState extends State<_AdminEditor> {
         editing,
         widget.api.config,
       );
+      if (_creatingSlot &&
+          !DateTime.parse('${payload['mulaiPada']}')
+              .isAfter(widget.api.config.now)) {
+        throw const FormatException(
+          'Waktu mulai slot baru harus setelah waktu sekarang.',
+        );
+      }
       if (widget.onSave != null) {
         await widget.onSave!(payload);
       } else {
@@ -1356,7 +1494,6 @@ class _AdminEditorState extends State<_AdminEditor> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Zona waktu: ${widget.api.config.serviceTimeZone}'),
                 error != null
                     ? AdminNotice(error!, error: true)
                     : const SizedBox.shrink(),
@@ -1376,7 +1513,12 @@ class _AdminEditorState extends State<_AdminEditor> {
           child: const Text('Kembali'),
         ),
         FilledButton(
-          onPressed: busy ? null : save,
+          onPressed:
+              busy ||
+                  (_creatingSlot &&
+                      _eligibleSlotSessions(widget.api.config.now).isEmpty)
+              ? null
+              : save,
           child: Text(busy ? 'Menyimpan…' : 'Simpan'),
         ),
       ],

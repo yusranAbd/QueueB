@@ -87,7 +87,7 @@ class _DoctorAccountDialogState extends State<DoctorAccountDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('${widget.doctor['nama']}'),
-                if (widget.doctor['penggunaId'] != null)
+                if (widget.doctor['penggunaId'] != null) ...[
                   MobileNotice(
                     'Akun login: ${object(widget.doctor['pengguna'])['email'] ?? 'Tertaut'}. '
                     'Status akun: ${object(widget.doctor['pengguna'])['aktif'] == true
@@ -97,8 +97,38 @@ class _DoctorAccountDialogState extends State<DoctorAccountDialog> {
                         : 'belum tersedia'}. '
                     'Status profil: ${widget.doctor['aktif'] == true ? 'aktif' : 'nonaktif'}. '
                     'Pelepasan atau penggantian akun belum didukung. Menonaktifkan profil memblokir akses portal.',
-                  )
-                else ...[
+                  ),
+                  if (object(widget.doctor['pengguna'])['aktif'] == true)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.lock_reset_outlined),
+                        label: const Text('Reset kata sandi dokter'),
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                final result = await showDialog<bool>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (_) => AdminStaffPasswordResetDialog(
+                                    api: widget.api,
+                                    accountId: '${widget.doctor['penggunaId']}',
+                                    accountName: '${widget.doctor['nama']}',
+                                    roleLabel: 'Dokter',
+                                  ),
+                                );
+                                if (!context.mounted || result != true) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Kata sandi dokter berhasil direset. Sesi lama dicabut.',
+                                    ),
+                                  ),
+                                );
+                              },
+                      ),
+                    ),
+                ] else ...[
                   const Text(
                     'Satu profil hanya dapat memiliki satu akun DOKTER. Registrasi pasien tidak digunakan.',
                   ),
@@ -194,6 +224,156 @@ class _DoctorAccountDialogState extends State<DoctorAccountDialog> {
                   : 'Buat akun DOKTER',
             ),
           ),
+      ],
+    ),
+  );
+}
+
+/// Dialog reset kata sandi untuk akun DOKTER/PETUGAS oleh ADMIN.
+/// Tidak membaca atau menampilkan kata sandi lama.
+class AdminStaffPasswordResetDialog extends StatefulWidget {
+  const AdminStaffPasswordResetDialog({
+    super.key,
+    required this.api,
+    required this.accountId,
+    required this.accountName,
+    required this.roleLabel,
+  });
+
+  final QueueApi api;
+  final String accountId;
+  final String accountName;
+  final String roleLabel;
+
+  @override
+  State<AdminStaffPasswordResetDialog> createState() =>
+      _AdminStaffPasswordResetDialogState();
+}
+
+class _AdminStaffPasswordResetDialogState
+    extends State<AdminStaffPasswordResetDialog> {
+  final form = GlobalKey<FormState>();
+  final password = TextEditingController();
+  final confirmation = TextEditingController();
+  bool busy = false;
+  bool showPassword = false;
+  String? error;
+
+  @override
+  void dispose() {
+    password.dispose();
+    confirmation.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    if (busy || !form.currentState!.validate()) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.api.request(
+        'PATCH',
+        '/auth/admin/accounts/${widget.accountId}/password',
+        body: {'kataSandiBaru': password.text},
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !busy,
+    child: AlertDialog(
+      title: Text('Reset Kata Sandi ${widget.roleLabel}'),
+      content: SizedBox(
+        width: 440,
+        child: SingleChildScrollView(
+          child: Form(
+            key: form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.accountName,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Masukkan kata sandi baru. Seluruh sesi login akun ini akan dicabut, sehingga pengguna perlu masuk kembali.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: password,
+                  obscureText: !showPassword,
+                  enabled: !busy,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: 'Kata sandi baru',
+                    suffixIcon: IconButton(
+                      tooltip: showPassword
+                          ? 'Sembunyikan kata sandi'
+                          : 'Tampilkan kata sandi',
+                      onPressed: busy
+                          ? null
+                          : () => setState(() => showPassword = !showPassword),
+                      icon: Icon(
+                        showPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                    ),
+                  ),
+                  validator: (value) {
+                    final v = value ?? '';
+                    if (v.length != 8) {
+                      return 'Kata sandi harus tepat 8 karakter.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: confirmation,
+                  obscureText: !showPassword,
+                  enabled: !busy,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Konfirmasi kata sandi',
+                  ),
+                  validator: (v) => v != password.text
+                      ? 'Konfirmasi kata sandi tidak cocok.'
+                      : null,
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  MobileNotice(error!, error: true),
+                ],
+                if (busy) const LinearProgressIndicator(),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: busy ? null : () => Navigator.pop(context, false),
+          child: const Text('Batal'),
+        ),
+        FilledButton.icon(
+          onPressed: busy ? null : save,
+          icon: const Icon(Icons.lock_reset_outlined),
+          label: Text(busy ? 'Mereset…' : 'Reset Kata Sandi'),
+        ),
       ],
     ),
   );

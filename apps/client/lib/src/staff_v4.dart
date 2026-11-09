@@ -117,7 +117,7 @@ class _StaffDashboardClockState extends State<StaffDashboardClock> {
                   ),
                 ),
                 Text(
-                  'Pukul ${two(now.hour)}.${two(now.minute)} · ${widget.config.serviceTimeZone}',
+                  'Pukul ${two(now.hour)}.${two(now.minute)}',
                   style: const TextStyle(
                     color: QueueBStyle.muted,
                     fontSize: 12,
@@ -375,7 +375,7 @@ class StaffScheduledDoctors extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${dateOnly(s['tanggal'])}\n${config.instantLabel(s['mulaiPada']).split(' ').last} – ${config.instantLabel(s['selesaiPada']).split(' ').last} · ${config.serviceTimeZone}',
+                              '${dateOnly(s['tanggal'])}\n${config.instantLabel(s['mulaiPada']).split(' ').last} – ${config.instantLabel(s['selesaiPada']).split(' ').last}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 height: 1.2,

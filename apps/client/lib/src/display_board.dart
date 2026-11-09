@@ -170,7 +170,7 @@ class DisplayBoard extends StatelessWidget {
                     const TextSpan(
                       children: [
                         TextSpan(
-                          text: '${AppBrand.leading}\n',
+                          text: AppBrand.leading,
                           style: TextStyle(color: Color(0xff101e4a)),
                         ),
                         TextSpan(

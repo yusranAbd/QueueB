@@ -1,13 +1,11 @@
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 
-import 'app_brand.dart';
 import 'api.dart';
 import 'config.dart';
 import 'features/patient/models/patient_queue_models.dart';
-import 'mobile_ui.dart';
+import 'mobile_ui.dart' show QueueBBrand;
 import 'patient_design.dart';
 import 'patient_home_v7.dart';
 import 'patient_reservations.dart' show reservationStatus;
@@ -368,7 +366,7 @@ class _PatientServiceTicketV8State extends State<PatientServiceTicketV8> {
                       style: const TextStyle(
                         fontSize: 11,
                         height: 1.3,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         color: PatientDesign.muted,
                       ),
                     ),
@@ -446,7 +444,7 @@ class _PatientServiceTicketV8State extends State<PatientServiceTicketV8> {
                               style: TextStyle(
                                 fontSize: 11,
                                 height: 1.3,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w400,
                                 color: PatientDesign.primary,
                               ),
                             ),
@@ -458,7 +456,7 @@ class _PatientServiceTicketV8State extends State<PatientServiceTicketV8> {
                         style: const TextStyle(
                           fontSize: 12,
                           height: 1.4,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                           color: PatientDesign.muted,
                         ),
                       ),
@@ -545,7 +543,7 @@ class _PatientServiceTicketV8State extends State<PatientServiceTicketV8> {
                           style: TextStyle(
                             fontSize: 11,
                             height: 1.35,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w400,
                             color: PatientDesign.muted,
                           ),
                         ),
@@ -711,12 +709,13 @@ class PatientHomeAppBarV8 extends StatelessWidget
   final QueueApi api;
   final double height, maxWidth;
   final VoidCallback onProfile, onNotifications;
-  static double heightFor(BuildContext context) => math.max(
-    64,
-    MediaQuery.textScalerOf(context).scale(16) *
-            (MediaQuery.textScalerOf(context).scale(12) > 18 ? 4 : 3) +
-        16,
-  );
+  static double heightFor(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final textHeight = scaler.scale(18) * 1.25 + scaler.scale(11) * 1.3;
+    // Allow fractional font metrics to round up in a fixed app bar as well.
+    return math.max(64, (textHeight + 25).ceilToDouble() + 2);
+  }
+
   @override
   Size get preferredSize => Size.fromHeight(height);
   @override
@@ -729,40 +728,83 @@ class PatientHomeAppBarV8 extends StatelessWidget
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ListenableBuilder(
             listenable: api,
-            builder: (context, _) => Row(
-              children: [
-                Expanded(
-                  child: Semantics(
-                    container: true,
-                    label: AppBrand.name,
-                    child: const ExcludeSemantics(
-                      child: QueueBBrand(
-                        compact: true,
-                        fontSize: 16,
-                        logoSize: 30,
-                      ),
+            builder: (context, _) {
+              final fullName = '${api.user?['nama'] ?? ''}'.trim();
+              final firstName = fullName.isEmpty
+                  ? 'Pasien'
+                  : fullName.split(RegExp(r'\s+')).first;
+              return Row(
+                children: [
+                  const QueueBBrand(
+                    compact: true,
+                    logoOnly: true,
+                    logoSize: 30,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Tooltip(
+                          message: fullName.isEmpty ? 'Pasien' : fullName,
+                          child: Text(
+                            'Halo, $firstName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              height: 1.25,
+                              fontWeight: FontWeight.w700,
+                              color: PatientDesign.ink,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: PatientDesign.soft,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Pasien Umum',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.3,
+                              fontWeight: FontWeight.w400,
+                              color: PatientDesign.primary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  tooltip: 'Notifikasi',
-                  onPressed: onNotifications,
-                  icon: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: PatientHomeV8Style.blue,
-                    size: 22,
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: 'Notifikasi',
+                    onPressed: onNotifications,
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: PatientHomeV8Style.blue,
+                      size: 22,
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Profil pasien',
-                  onPressed: onProfile,
-                  icon: ExcludeSemantics(
-                    child: AccountAvatar(api: api, radius: 18),
+                  IconButton(
+                    tooltip: 'Profil pasien',
+                    onPressed: onProfile,
+                    icon: ExcludeSemantics(
+                      child: AccountAvatar(api: api, radius: 18),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -789,63 +831,6 @@ class PatientHomeWelcomeV8 extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: PatientDesign.border),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Halo, ${name.trim().isEmpty ? 'Pasien' : name.trim()}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          height: 1.25,
-                          fontWeight: FontWeight.w700,
-                          color: PatientDesign.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        AppBrand.name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.35,
-                          color: PatientDesign.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ExcludeSemantics(
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: PatientDesign.soft,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.medical_services_outlined,
-                      size: 24,
-                      color: PatientHomeV8Style.blue,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
         TextField(
           controller: controller,
           onChanged: onSearch,
@@ -914,37 +899,26 @@ class PatientHomeVisitV8 extends StatelessWidget {
     this.ticket,
     this.appointment,
     this.onOpen,
-    this.loading = false,
-    this.unavailable = false,
   });
   final AppConfig config;
   final Json? ticket, appointment;
   final VoidCallback? onOpen;
-  final bool loading, unavailable;
   @override
   Widget build(BuildContext context) {
+    final visit = ticket;
+    if (visit == null) return const SizedBox.shrink();
+
     final slot = object(appointment?['slotPraktik']);
-    final day =
-        '${ticket?['tanggalPelayanan'] ?? ticket?['tanggalAntrean'] ?? ''}';
-    final service = label(object(ticket?['layanan']));
-    final number = '${ticket?['nomorAntrean'] ?? ''}'.trim();
-    final when = ticket == null
-        ? loading
-              ? 'Memuat kunjungan…'
-              : unavailable
-              ? 'Kunjungan belum dapat dimuat.'
-              : 'Belum ada kunjungan mendatang.'
-        : [
-            dateOnly(day) == config.today
-                ? 'Hari ini'
-                : patientCompactDate(day),
-            if (slot['mulaiPada'] != null)
-              '${patientTime(slot, config)} ${patientHomeTimeZone(config.serviceTimeZone)}',
-            if (number.isNotEmpty) 'No. $number',
-          ].join(' · ');
-    final status = ticket == null
-        ? null
-        : reservationStatus('${ticket!['status']}');
+    final day = '${visit['tanggalPelayanan'] ?? visit['tanggalAntrean'] ?? ''}';
+    final service = label(object(visit['layanan']));
+    final number = '${visit['nomorAntrean'] ?? ''}'.trim();
+    final when = [
+      dateOnly(day) == config.today ? 'Hari ini' : patientCompactDate(day),
+      if (slot['mulaiPada'] != null)
+        '${patientTime(slot, config)} ${patientHomeTimeZone(config.serviceTimeZone)}',
+      if (number.isNotEmpty) 'No. $number',
+    ].join(' · ');
+    final status = '${visit['status']}';
     return Material(
       key: const ValueKey('patient-nearest-visit'),
       color: const Color(0xffdbe5ff),
@@ -989,19 +963,17 @@ class PatientHomeVisitV8 extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               height: 1.3,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w400,
                               color: PatientHomeV8Style.blue,
                             ),
                           ),
-                          if (ticket != null &&
-                              service.isNotEmpty &&
-                              service != '—')
+                          if (service.isNotEmpty && service != '—')
                             Text(
                               service,
                               style: const TextStyle(
                                 fontSize: 12,
                                 height: 1.3,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w400,
                                 color: PatientDesign.ink,
                               ),
                             ),
@@ -1012,16 +984,13 @@ class PatientHomeVisitV8 extends StatelessWidget {
                         TextSpan(
                           children: [
                             TextSpan(text: when),
-                            if (status != null)
-                              TextSpan(
-                                text: ' · $status',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: PatientDesign.statusInk(
-                                    '${ticket!['status']}',
-                                  ),
-                                ),
+                            TextSpan(
+                              text: ' · ${reservationStatus(status)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                color: PatientDesign.statusInk(status),
                               ),
+                            ),
                           ],
                         ),
                         style: const TextStyle(
@@ -1091,7 +1060,7 @@ class PatientHomeListHeading extends StatelessWidget {
               fontSize: 11,
               height: 1.3,
               color: PatientDesign.ink,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -1112,7 +1081,7 @@ class PatientHomeListHeading extends StatelessWidget {
                 live ? 'Live Update' : 'Pembaruan berkala',
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                   color: live
                       ? PatientDesign.statusInk('DILAYANI')
                       : PatientDesign.muted,

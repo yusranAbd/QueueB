@@ -120,11 +120,13 @@ class QueueBBrand extends StatelessWidget {
     this.onDark = false,
     this.fontSize,
     this.logoSize,
+    this.logoOnly = false,
   });
   final bool compact;
   final bool onDark;
   final double? fontSize;
   final double? logoSize;
+  final bool logoOnly;
   @override
   Widget build(BuildContext context) => Semantics(
     label: AppBrand.name,
@@ -132,6 +134,22 @@ class QueueBBrand extends StatelessWidget {
     child: LayoutBuilder(
       builder: (context, bounds) {
         final size = logoSize ?? (compact ? 32.0 : 48.0);
+        final mark = Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: onDark ? Colors.white : QueueBStyle.teal,
+            borderRadius: BorderRadius.circular(
+              onDark ? 12 : (compact ? 10 : 16),
+            ),
+          ),
+          child: Icon(
+            Icons.local_hospital_rounded,
+            color: onDark ? QueueBStyle.teal : Colors.white,
+            size: logoSize == null ? (compact ? 23 : 36) : logoSize! * .76,
+          ),
+        );
+        if (logoOnly) return ExcludeSemantics(child: mark);
         final style = DefaultTextStyle.of(context).style.merge(
           TextStyle(
             fontSize: fontSize ?? (compact ? 18 : 30),
@@ -144,7 +162,7 @@ class QueueBBrand extends StatelessWidget {
           style: style,
           children: [
             TextSpan(
-              text: '${AppBrand.leading}${singleLine ? ' ' : '\n'}',
+              text: AppBrand.leading,
               style: TextStyle(color: onDark ? Colors.white : QueueBStyle.navy),
             ),
             TextSpan(
@@ -185,23 +203,7 @@ class QueueBBrand extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: onDark ? Colors.white : QueueBStyle.teal,
-                  borderRadius: BorderRadius.circular(
-                    onDark ? 12 : (compact ? 10 : 16),
-                  ),
-                ),
-                child: Icon(
-                  Icons.local_hospital_rounded,
-                  color: onDark ? QueueBStyle.teal : Colors.white,
-                  size: logoSize == null
-                      ? (compact ? 23 : 36)
-                      : logoSize! * .76,
-                ),
-              ),
+              mark,
               if (!markOnly) ...[
                 const SizedBox(width: 10),
                 Flexible(

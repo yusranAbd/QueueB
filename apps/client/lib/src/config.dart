@@ -1,11 +1,35 @@
+import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
+
+Uri _configuredApiBase(String value, bool remotePreview) {
+  final normalized = value.replaceAll(RegExp(r'/+$'), '');
+  if (!remotePreview) return Uri.parse(normalized);
+  if (!kIsWeb || normalized != '/api/v1') {
+    throw ArgumentError(
+      'QUEUEB_REMOTE_PREVIEW hanya untuk Web dengan API_BASE_URL=/api/v1.',
+    );
+  }
+  final page = Uri.base;
+  final loopback = const {'localhost', '127.0.0.1', '::1'}.contains(page.host);
+  if (page.host.isEmpty ||
+      page.userInfo.isNotEmpty ||
+      !(page.scheme == 'https' || (page.scheme == 'http' && loopback))) {
+    throw ArgumentError(
+      'Remote Preview memerlukan origin HTTPS atau HTTP loopback lokal.',
+    );
+  }
+  // Only this explicit Web mode follows the page origin. Normal and native
+  // configurations keep their absolute API URL and never fall back to a proxy.
+  return Uri.parse('${page.origin}/api/v1');
+}
 
 class AppConfig {
   AppConfig({
     required String apiBaseUrl,
     this.serviceTimeZone = 'Asia/Jakarta',
     this.realtime = true,
-  }) : apiBase = Uri.parse(apiBaseUrl.replaceAll(RegExp(r'/+$'), '')) {
+    this.remotePreview = false,
+  }) : apiBase = _configuredApiBase(apiBaseUrl, remotePreview) {
     if (!['http', 'https'].contains(apiBase.scheme) ||
         apiBase.host.isEmpty ||
         apiBase.hasQuery ||
@@ -26,10 +50,11 @@ class AppConfig {
       'SERVICE_TIME_ZONE',
       defaultValue: 'Asia/Jakarta',
     ),
+    remotePreview: const bool.fromEnvironment('QUEUEB_REMOTE_PREVIEW'),
   );
   final Uri apiBase;
   final String serviceTimeZone;
-  final bool realtime;
+  final bool realtime, remotePreview;
   late final tz.Location location;
   String get socketOrigin => apiBase.origin;
   tz.TZDateTime get now => tz.TZDateTime.now(location);

@@ -56,7 +56,7 @@ class _AdminPracticeAgendaState extends State<AdminPracticeAgenda> {
     final days = dates, today = widget.config.today;
     selected = days.contains(today)
         ? today
-        : days.where((d) => d.compareTo(today) > 0).firstOrNull ?? days.last;
+        : days.where((d) => d.compareTo(today) > 0).firstOrNull ?? today;
     initialized = true;
   }
 
@@ -176,7 +176,7 @@ class _AdminPracticeAgendaState extends State<AdminPracticeAgenda> {
                     child: const Text('Hari ini'),
                   ),
                 Text(
-                  '${visible.length} sesi · ${widget.config.serviceTimeZone}',
+                  '${visible.length} sesi',
                   style: const TextStyle(
                     fontSize: 12,
                     color: QueueBStyle.muted,

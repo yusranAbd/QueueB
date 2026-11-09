@@ -61,6 +61,13 @@ class DoctorDashboardData {
       waiting.where((a) => a['layakDipanggil'] == true).firstOrNull;
 }
 
+String doctorPatientName(Json row) {
+  final name = row['namaPasien'];
+  return name is String && name.trim().isNotEmpty
+      ? name.trim()
+      : 'Nama belum tersedia';
+}
+
 String doctorStatus(Object? value) => switch ('$value') {
   'DIPESAN' => 'Dipesan',
   'CHECK_IN' => 'Check-In',
@@ -194,7 +201,7 @@ class DoctorDashboard extends StatelessWidget {
           if (desktop) {
             return CustomScrollView(
               key: const ValueKey('doctor-desktop-viewport'),
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               slivers: [
                 SliverFillRemaining(
                   hasScrollBody: true,
@@ -605,47 +612,6 @@ class DoctorDashboard extends StatelessWidget {
   }
 }
 
-void showDoctorQueueDetail(BuildContext context, Json row, AppConfig config) =>
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Detail antrean ${row['nomorAntrean'] ?? '—'}'),
-        scrollable: true,
-        content: SizedBox(
-          width: 430,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label(object(row['poliklinik']))),
-              Text(label(object(row['ruang']))),
-              if (object(row['ruang'])['lokasi'] != null)
-                Text('${object(row['ruang'])['lokasi']}'),
-              const SizedBox(height: 12),
-              Text('Waktu slot: ${doctorTime(row, config)}'),
-              Text('Status: ${doctorStatus(row['status'])}'),
-              if (row['layakDipanggil'] is bool)
-                Text(
-                  row['layakDipanggil'] == true
-                      ? 'Layak dipanggil menurut antrean saat ini.'
-                      : 'Belum layak dipanggil menurut antrean saat ini.',
-                ),
-              const SizedBox(height: 16),
-              const Text(
-                'Nama pasien, identitas dan catatan klinis tidak disediakan pada portal ini.',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
-    );
-
 class DoctorQueuePanel extends StatefulWidget {
   const DoctorQueuePanel({
     super.key,
@@ -695,7 +661,7 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
         .where(
           (row) =>
               inGroup(row, group) &&
-              '${row['nomorAntrean'] ?? ''} ${label(object(row['poliklinik']))} ${label(object(row['ruang']))} ${object(row['ruang'])['kode'] ?? ''}'
+              '${row['nomorAntrean'] ?? ''} ${doctorPatientName(row)} ${label(object(row['poliklinik']))} ${label(object(row['ruang']))} ${object(row['ruang'])['kode'] ?? ''}'
                   .toLowerCase()
                   .contains(search),
         )
@@ -807,7 +773,7 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
                 }),
                 style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
-                  hintText: 'Cari nomor antrean, poli, atau ruang…',
+                  hintText: 'Cari nomor antrean atau nama pasien…',
                   hintStyle: TextStyle(fontSize: 12),
                   prefixIcon: Icon(Icons.search_rounded, size: 21),
                   prefixIconConstraints: BoxConstraints(
@@ -882,7 +848,7 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
             children: [
               const Spacer(),
               const Tooltip(
-                message: 'Identitas pasien dan catatan medis tidak disediakan. Pencarian berlaku pada data yang dimuat; snapshot maksimal 100 entri per sesi.',
+                message: 'Pencarian berlaku pada antrean yang telah dimuat.',
                 child: Icon(
                   Icons.info_outline_rounded,
                   size: 15,
@@ -976,18 +942,19 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
         ),
       ],
     );
-    Widget service(Json row) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label(object(row['poliklinik'])),
-          style: const TextStyle(fontSize: 13, color: DoctorStyle.ink),
+    Widget patient(Json row) => Tooltip(
+      message: doctorPatientName(row),
+      child: Text(
+        doctorPatientName(row),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 13,
+          height: 1.35,
+          fontWeight: FontWeight.w600,
+          color: DoctorStyle.ink,
         ),
-        Text(
-          '${object(row['ruang'])['kode'] ?? label(object(row['ruang']))}',
-          style: const TextStyle(fontSize: 11, color: QueueBStyle.muted),
-        ),
-      ],
+      ),
     );
     Widget state(Json row) => Align(
       alignment: Alignment.centerLeft,
@@ -999,21 +966,6 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
             : row['status'] == 'SELESAI'
             ? Icons.check_circle_outline_rounded
             : Icons.circle,
-      ),
-    );
-    Widget menu(Json row) => SizedBox(
-      width: 36,
-      child: PopupMenuButton<String>(
-        tooltip: 'Detail antrean ${row['nomorAntrean']}',
-        onSelected: (_) => showDoctorQueueDetail(context, row, widget.config),
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: 'detail', child: Text('Detail antrean')),
-        ],
-        icon: const Icon(
-          Icons.more_horiz_rounded,
-          size: 21,
-          color: QueueBStyle.muted,
-        ),
       ),
     );
     final list = shown.isEmpty
@@ -1051,10 +1003,9 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
                     ? Row(
                         children: [
                           cell(number(row), 20),
-                          cell(kind(row), 29),
-                          cell(service(row), 28),
+                          cell(kind(row), 24),
+                          cell(patient(row), 33),
                           cell(state(row), 23),
-                          menu(row),
                         ],
                       )
                     : Padding(
@@ -1067,13 +1018,12 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
                                 number(row),
                                 const SizedBox(width: 10),
                                 Expanded(child: state(row)),
-                                menu(row),
                               ],
                             ),
                             const SizedBox(height: 8),
                             kind(row),
                             const SizedBox(height: 6),
-                            service(row),
+                            patient(row),
                           ],
                         ),
                       ),
@@ -1148,10 +1098,9 @@ class _DoctorQueuePanelState extends State<DoctorQueuePanel> {
               child: Row(
                 children: [
                   cell(const Text('No. Antrean'), 20),
-                  cell(const Text('Kunjungan'), 29),
-                  cell(const Text('Layanan / Ruang'), 28),
+                  cell(const Text('Kunjungan'), 24),
+                  cell(const Text('Nama Pasien'), 33),
                   cell(const Text('Status'), 23),
-                  const SizedBox(width: 36),
                 ],
               ),
             ),
@@ -1232,12 +1181,17 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: compact ? 13 : 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Tooltip(
+                message: value,
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 13 : 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -1254,6 +1208,24 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
       ),
       child: LayoutBuilder(
         builder: (context, box) {
+          final horizontal =
+              box.maxWidth >= 330 &&
+              MediaQuery.textScalerOf(context).scale(14) <= 15.4;
+          final number = FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${ticket?['nomorAntrean'] ?? '—'}',
+              style: TextStyle(
+                fontSize: compact ? 68 : 84,
+                height: 1,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1,
+                color: Colors.white,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          );
           final identity = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1298,19 +1270,29 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '${ticket?['nomorAntrean'] ?? '—'}',
-                style: TextStyle(
-                  fontSize: compact ? 44 : 60,
-                  height: 1.05,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                  color: Colors.white,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              const SizedBox(height: 4),
+              if (box.hasBoundedHeight && horizontal)
+                Flexible(child: number)
+              else
+                number,
+              if (ticket != null) ...[
+                const SizedBox(height: 4),
+                Tooltip(
+                  message: doctorPatientName(ticket),
+                  child: Text(
+                    doctorPatientName(ticket),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 5),
+              ],
+              const SizedBox(height: 2),
               Text(
                 ticket == null
                     ? widget.loading
@@ -1323,8 +1305,11 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
                           : ticket['jenisAntrean'] == 'JANJI_TEMU'
                           ? 'Janji temu'
                           : 'Antrean'}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11,
+                  height: 1.25,
                   color: DoctorStyle.liveMuted,
                 ),
               ),
@@ -1350,8 +1335,7 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
               ),
             ],
           );
-          return box.maxWidth >= 330 &&
-                  MediaQuery.textScalerOf(context).scale(14) <= 18
+          return horizontal
               ? Row(
                   children: [
                     Expanded(flex: 6, child: identity),
@@ -1378,31 +1362,49 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
         },
       ),
     );
-    final body = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (active.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final row in active)
-                  ChoiceChip(
-                    label: Text('${row['nomorAntrean']}'),
-                    selected: identical(row, ticket),
-                    showCheckmark: false,
-                    onSelected: (_) =>
-                        setState(() => selected = DoctorDashboardData.key(row)),
-                  ),
-              ],
+    final selector = active.length <= 1
+        ? null
+        : Tooltip(
+            message: 'Pilih antrean aktif',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: DoctorDashboardData.key(ticket!),
+                  isExpanded: true,
+                  itemHeight: null,
+                  dropdownColor: const Color(0xff0d245c),
+                  iconEnabledColor: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  selectedItemBuilder: (_) => [
+                    for (final row in active)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${row['nomorAntrean'] ?? '—'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  items: [
+                    for (final row in active)
+                      DropdownMenuItem(
+                        value: DoctorDashboardData.key(row),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            '${row['nomorAntrean'] ?? '—'} · ${object(row['ruang'])['kode'] ?? label(object(row['ruang']))}',
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => selected = value),
+                ),
+              ),
             ),
-          ),
-        card,
-      ],
-    );
+          );
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -1442,11 +1444,15 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
           ),
           Padding(
             padding: EdgeInsets.all(compact ? 12 : 16),
-            child: Column(
-              mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+            child: LayoutBuilder(
+              builder: (context, panel) {
+                final fill =
+                    widget.expand &&
+                    panel.hasBoundedHeight &&
+                    panel.maxHeight >= 246 &&
+                    panel.maxWidth >= 350 &&
+                    MediaQuery.textScalerOf(context).scale(14) <= 15.4;
+                final header = Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
@@ -1471,6 +1477,14 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
                         ),
                       ),
                     ),
+                    if (selector != null) ...[
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: panel.maxWidth >= 400 ? 110 : 92,
+                        child: selector,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     ValueListenableBuilder<String>(
                       valueListenable: widget.status,
                       builder: (_, value, child) => Tooltip(
@@ -1485,45 +1499,32 @@ class _DoctorLivePanelState extends State<DoctorLivePanel> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 8),
-                if (widget.expand)
-                  Expanded(child: SingleChildScrollView(child: body))
-                else
-                  body,
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: ticket == null
-                      ? null
-                      : () => showDoctorQueueDetail(
-                          context,
-                          ticket,
-                          widget.config,
-                        ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: const Color(0xffbac9ed),
-                    side: const BorderSide(color: Colors.white54),
-                    backgroundColor: Colors.white.withValues(alpha: .05),
-                    minimumSize: const Size(44, 40),
-                  ),
-                  icon: const Icon(Icons.visibility_outlined, size: 19),
-                  label: const Text(
-                    'Lihat detail antrean',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  next == null
-                      ? 'Belum ada antrean berikutnya yang layak dipanggil.'
-                      : 'Berikutnya yang layak: ${next['nomorAntrean']}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: DoctorStyle.liveMuted,
-                  ),
-                ),
-              ],
+                );
+                final content = Column(
+                  mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: 8),
+                    if (fill) Expanded(child: card) else card,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Antrean berikutnya = ${next?['nomorAntrean'] ?? '—'}',
+                      style: TextStyle(
+                        fontSize: compact ? 18 : 20,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                        color: DoctorStyle.liveMuted,
+                      ),
+                    ),
+                  ],
+                );
+                // A normal desktop panel fills its card; short viewports and
+                // enlarged text retain a readable, naturally flowing fallback.
+                return widget.expand && !fill
+                    ? SingleChildScrollView(child: content)
+                    : content;
+              },
             ),
           ),
         ],

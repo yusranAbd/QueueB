@@ -109,7 +109,6 @@ class PatientBookingCubit extends Cubit<PatientBookingState> {
     _set({'nearestLoading': false, 'nearestActive': false});
   }
 
-  void clearAvailability() => _set({'availability': <String, dynamic>{}});
   void _catalogChanged() {
     if (_closing || isClosed) return;
     if (!patient.active) {
@@ -177,42 +176,6 @@ class PatientBookingCubit extends Cubit<PatientBookingState> {
       });
       if (!current || epoch != revision) return;
       _set({'clinicSchedules': list});
-      final nearest = <String, Json>{};
-      final sorted = [...list]
-        ..sort((a, b) => '${a['mulaiPada']}'.compareTo('${b['mulaiPada']}'));
-      for (final session in sorted) {
-        final link = object(session['dokterLayanan']);
-        final id = link['dokterId'] ?? object(link['dokter'])['id'];
-        if (id is String &&
-            session['aktif'] != false &&
-            dateOnly(session['tanggal']).compareTo(patient.api.config.today) >=
-                0) {
-          nearest.putIfAbsent(id, () => session);
-        }
-      }
-      final entries = nearest.entries.toList();
-      final availability = <String, String>{};
-      for (var i = 0; i < entries.length; i += 4) {
-        if (!current || epoch != revision) return;
-        await Future.wait(
-          entries.skip(i).take(4).map((entry) async {
-            try {
-              final items = await repository.read('/slot-praktik', {
-                'jadwalPraktikId': '${entry.value['id']}',
-              });
-              final count = items
-                  .where((s) => s['aktif'] != false && s['tersedia'] == true)
-                  .length;
-              availability[entry.key] = count > 0
-                  ? '$count slot tersedia pada sesi terdekat'
-                  : 'Belum ada slot tersedia pada sesi terdekat';
-            } catch (_) {
-              availability[entry.key] = 'Ketersediaan slot belum dapat dimuat';
-            }
-          }),
-        );
-      }
-      if (current && epoch == revision) _set({'availability': availability});
     } catch (error) {
       if (current && epoch == revision) {
         _set({}, error: '${patientError(error)}');

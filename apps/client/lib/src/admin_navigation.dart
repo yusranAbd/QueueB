@@ -4,11 +4,7 @@ import 'admin_schema.dart';
 import 'mobile_ui.dart';
 
 const adminNavigationGroups = <(String, List<int>)>[
-  ('Operasional', [-1]),
-  ('Master Data & Layanan', [0, 1, 2, 3]),
-  ('Penjadwalan', [4, 5]),
-  ('Manajemen Petugas', [6]),
-  ('Sistem & Tampilan', [7, 8, 9]),
+  ('Operasional', [-1, 1, 6, 7]),
 ];
 
 String adminSectionTitle(int index) => switch (index) {
@@ -50,13 +46,13 @@ class AdminNavigation extends StatelessWidget {
     required this.onSelect,
     this.collapsed = false,
     this.onToggle,
-    this.onProfile,
     this.onSetup,
+    this.setupSelected = false,
   });
   final int selected;
   final ValueChanged<int>? onSelect;
-  final bool collapsed;
-  final VoidCallback? onToggle, onProfile, onSetup;
+  final bool collapsed, setupSelected;
+  final VoidCallback? onToggle, onSetup;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -154,27 +150,19 @@ class AdminNavigation extends StatelessWidget {
           _AdminNavigationItem(
             title: adminSectionTitle(i),
             icon: i == -1 ? Icons.dashboard_outlined : adminIcon(i),
-            selected: selected == i,
+            selected: !setupSelected && selected == i,
             collapsed: collapsed,
             onTap: onSelect == null ? null : () => onSelect!(i),
           ),
-          if (i == -1 && onSetup != null)
+          if (i == -1 && (onSetup != null || setupSelected))
             _AdminNavigationItem(
               title: 'Kelola Layanan Terpadu',
               icon: Icons.layers_outlined,
+              selected: setupSelected,
               collapsed: collapsed,
               onTap: onSelect == null ? null : onSetup,
             ),
         ],
-      ],
-      if (onProfile != null) ...[
-        const Divider(height: 24, indent: 6, endIndent: 6),
-        _AdminNavigationItem(
-          title: 'Profil Saya',
-          icon: Icons.account_circle_outlined,
-          collapsed: collapsed,
-          onTap: onProfile,
-        ),
       ],
     ],
   );

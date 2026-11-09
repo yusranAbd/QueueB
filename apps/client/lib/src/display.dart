@@ -42,9 +42,7 @@ class DisplayPage extends StatefulWidget {
 }
 
 class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
-  final service = TextEditingController(),
-      token = TextEditingController(),
-      activation = TextEditingController();
+  final activation = TextEditingController();
   final form = GlobalKey<FormState>();
   final fullscreen = DisplayFullscreen();
   late final selection =
@@ -60,7 +58,6 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
   );
   late final displayClock = ValueNotifier<DateTime>(widget.api.config.now);
   Timer? clock;
-  bool legacy = false;
   bool get connected => device.state.connected;
   bool get activating => device.state.phase == DisplayDevicePhase.pairing;
   bool get pairingBlocked =>
@@ -92,18 +89,11 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> restoreDevice() => device.restore();
   Future<void> pairDevice() async {
     if (pairingBlocked || !form.currentState!.validate()) return;
     final pending = device.pair(activation.text.trim());
     activation.clear();
     await pending;
-  }
-
-  void connect() {
-    if (!form.currentState!.validate()) return;
-    device.legacy(service.text.trim(), token.text.trim());
-    token.clear();
   }
 
   Future<void> disconnect() async {
@@ -112,7 +102,6 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
     if (!mounted) return;
     if (devices.scope != null) audioController.context(true);
     activation.clear();
-    token.clear();
   }
 
   void fullscreenChanged() {
@@ -140,8 +129,6 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
     displayClock.dispose();
     fullscreen.removeListener(fullscreenChanged);
     fullscreen.dispose();
-    service.dispose();
-    token.dispose();
     activation.dispose();
     super.dispose();
   }
@@ -239,88 +226,40 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Tab ini belum dipasangkan. Setiap monitor/tab menggunakan perangkat sendiri. Minta kode sekali pakai dari ADMIN melalui Manajemen Display.',
+                          'Setiap monitor/tab menggunakan perangkat sendiri. Minta kode sekali pakai dari ADMIN melalui Manajemen Display.',
                         ),
                         if (restoringDevice || activating)
                           const LinearProgressIndicator(),
                         if (error != null) Notice(error!, error: true),
-                        if (!legacy) ...[
-                          const SizedBox(height: 24),
-                          TextFormField(
-                            controller: activation,
-                            keyboardType: TextInputType.number,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Kode Aktivasi',
-                              hintText: '12 digit dari ADMIN',
-                              prefixIcon: Icon(Icons.key_outlined),
-                            ),
-                            validator: (v) =>
-                                RegExp(r'^\d{12}$').hasMatch(v?.trim() ?? '')
-                                ? null
-                                : 'Masukkan 12 digit kode aktivasi.',
-                            onFieldSubmitted: (_) => pairDevice(),
+                        const SizedBox(height: 24),
+                        TextFormField(
+                          controller: activation,
+                          keyboardType: TextInputType.number,
+                          enableSuggestions: false,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Kode Aktivasi',
+                            hintText: '12 digit dari ADMIN',
+                            prefixIcon: Icon(Icons.key_outlined),
                           ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: pairingBlocked ? null : pairDevice,
-                            icon: const Icon(Icons.tv),
-                            label: const Text('Hubungkan Perangkat'),
-                          ),
+                          validator: (v) =>
+                              RegExp(r'^\d{12}$').hasMatch(v?.trim() ?? '')
+                              ? null
+                              : 'Masukkan 12 digit kode aktivasi.',
+                          onFieldSubmitted: (_) => pairDevice(),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: pairingBlocked ? null : pairDevice,
+                          icon: const Icon(Icons.tv),
+                          label: const Text('Hubungkan Perangkat'),
+                        ),
+                        if (device.state.phase ==
+                            DisplayDevicePhase.uncertain) ...[
                           const SizedBox(height: 12),
                           TextButton(
-                            onPressed: restoringDevice ? null : restoreDevice,
-                            child: const Text('Periksa sesi tersimpan'),
-                          ),
-                        ],
-                        TextButton(
-                          onPressed: () => setState(() {
-                            legacy = !legacy;
-                          }),
-                          child: Text(
-                            legacy
-                                ? 'Gunakan kode aktivasi'
-                                : 'Konfigurasi lanjutan (token existing)',
-                          ),
-                        ),
-                        if (legacy) ...[
-                          const Notice(
-                            'Gunakan ID layanan dan token perangkat dari pengelola server. Token tidak disimpan ke URL atau penyimpanan browser.',
-                          ),
-                          TextFormField(
-                            controller: service,
-                            decoration: const InputDecoration(
-                              labelText: 'ID layanan',
-                            ),
-                            validator: (v) =>
-                                v == null ||
-                                    !RegExp(
-                                      r'^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$',
-                                    ).hasMatch(v.trim())
-                                ? 'ID layanan UUID wajib diisi.'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: token,
-                            obscureText: true,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Token perangkat',
-                            ),
-                            validator: (v) =>
-                                v == null ||
-                                    !RegExp(r'^[a-fA-F0-9]{64}$')
-                                        .hasMatch(v.trim())
-                                ? 'Token wajib 64 karakter heksadesimal.'
-                                : null,
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton(
-                            onPressed: connect,
-                            child: const Text('Hubungkan display'),
+                            onPressed: device.restore,
+                            child: const Text('Pulihkan sesi perangkat'),
                           ),
                         ],
                       ],

@@ -121,7 +121,7 @@ class ReservationStatus extends StatelessWidget {
               reservationStatus(value),
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w400,
                 color: color,
               ),
             ),
@@ -460,7 +460,7 @@ class ReservationCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 11,
                     height: 1.4,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     color: PatientDesign.muted,
                   ),
                 ),
@@ -474,7 +474,7 @@ class ReservationCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 height: 1.3,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w400,
                 color: PatientDesign.ink,
               ),
             ),
@@ -617,7 +617,7 @@ class ReservationCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 height: 1.35,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
                 color: PatientDesign.ink,
               ),
             ),
@@ -850,7 +850,7 @@ class _ReservationListState extends State<ReservationList> {
       ),
       const SizedBox(height: 4),
       const Text(
-        'Kelola jadwal kunjungan dan antrean Anda.',
+        'Jadwal kunjungan dan antrean Anda.',
         style: TextStyle(fontSize: 13, height: 1.4, color: PatientDesign.muted),
       ),
       if (widget.error != null) ...[

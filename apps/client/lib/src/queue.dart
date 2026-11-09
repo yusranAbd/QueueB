@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -321,42 +322,12 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
         selector: (state) => state.liveStatus,
         builder: (context, status) {
           final connected = status == 'Realtime terhubung';
-          final ink = connected ? const Color(0xff14653b) : QueueBStyle.warning;
           return Tooltip(
             message: status,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 165),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: connected
-                    ? const Color(0xffe2f7e9)
-                    : const Color(0xfffff3df),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: ink.withValues(alpha: .12)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    connected ? Icons.circle : Icons.sync_rounded,
-                    size: connected ? 9 : 15,
-                    color: ink,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      connected ? 'Terhubung' : status,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            child: Icon(
+              connected ? Icons.wifi_rounded : Icons.sync_rounded,
+              color: connected ? QueueBStyle.success : QueueBStyle.muted,
+              size: 20,
             ),
           );
         },
@@ -933,6 +904,18 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
     ),
     child: LayoutBuilder(
       builder: (context, box) {
+        final scaledBody = MediaQuery.textScalerOf(context).scale(14);
+        final sideBySide = box.maxWidth >= 380 && scaledBody <= 18;
+        // The viewport supplies a minimum height for a single desktop ticket.
+        final monitorScale = sideBySide
+            ? math
+                  .min(
+                    box.minHeight / (150 * scaledBody / 14),
+                    box.maxWidth / 330,
+                  )
+                  .clamp(1.0, 1.55)
+                  .toDouble()
+            : 1.0;
         final identity = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -941,7 +924,7 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
               alignment: Alignment.centerLeft,
               child: StaffStatusPill(ticket?['status']),
             ),
-            SizedBox(height: compact ? 3 : 8),
+            SizedBox(height: (compact ? 3 : 8) * monitorScale),
             QueueBValueMotion(
               value: ticket?['nomorAntrean'],
               scope: selectedRoom?['id'],
@@ -957,9 +940,9 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            SizedBox(height: compact ? 4 : 10),
+            SizedBox(height: (compact ? 4 : 10) * monitorScale),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   padding: EdgeInsets.all(compact ? 5 : 7),
@@ -970,7 +953,7 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
                   child: Icon(
                     Icons.person_outline_rounded,
                     color: StaffStyle.blue,
-                    size: compact ? 20 : 25,
+                    size: (compact ? 20 : 25) * monitorScale,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -994,7 +977,11 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
         Widget fact(IconData icon, String title, String value) => Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: const Color(0xff41517c), size: compact ? 21 : 26),
+            Icon(
+              icon,
+              color: const Color(0xff41517c),
+              size: (compact ? 21 : 26) * monitorScale,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1031,7 +1018,9 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
               label(object(selectedRoom?['layanan'])),
             ),
             Padding(
-              padding: EdgeInsets.symmetric(vertical: compact ? 7 : 12),
+              padding: EdgeInsets.symmetric(
+                vertical: (compact ? 7 : 12) * monitorScale,
+              ),
               child: const Divider(height: 1, color: QueueBStyle.border),
             ),
             fact(
@@ -1044,22 +1033,16 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
                         .split(' ')
                         .last,
             ),
-            if (!compact)
-              Text(
-                widget.api.config.serviceTimeZone,
-                style: const TextStyle(fontSize: 11, color: QueueBStyle.muted),
-              ),
           ],
         );
-        return box.maxWidth >= 380 &&
-                MediaQuery.textScalerOf(context).scale(14) <= 18
+        return sideBySide
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(flex: 6, child: identity),
                   Container(
                     width: 1,
-                    height: compact ? 100 : 140,
+                    height: (compact ? 100 : 140) * monitorScale,
                     margin: EdgeInsets.symmetric(horizontal: compact ? 14 : 20),
                     color: QueueBStyle.border,
                   ),
@@ -1369,22 +1352,23 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
             ],
           ),
         );
-        // A single ticket occupies the flexible middle section. Long names or
-        // exceptional multi-active snapshots scroll inside this section only.
+        // A single ticket fills the middle section. The inner viewport only
+        // scrolls if the content exceeds the height left by the controls.
         final ticketArea = Padding(
           padding: EdgeInsets.symmetric(horizontal: inset),
-          child: LayoutBuilder(
-            builder: (context, ticketBox) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: ticketBox.hasBoundedHeight
-                      ? ticketBox.maxHeight
-                      : 0,
-                ),
-                child: tickets(),
-              ),
-            ),
-          ),
+          child: bounded
+              ? LayoutBuilder(
+                  builder: (context, ticketBox) => SingleChildScrollView(
+                    primary: false,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: ticketBox.maxHeight,
+                      ),
+                      child: tickets(),
+                    ),
+                  ),
+                )
+              : tickets(),
         );
         final content = Column(
           mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,

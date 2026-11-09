@@ -172,7 +172,7 @@ class PatientDoctorBookingBar extends StatelessWidget {
                           fontSize: 11,
                           height: 1.3,
                           letterSpacing: .5,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w400,
                           color: PatientDesign.primary,
                         ),
                       ),
@@ -182,7 +182,7 @@ class PatientDoctorBookingBar extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 13,
                           height: 1.25,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w400,
                           color: PatientDesign.ink,
                         ),
                       ),

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { PeranPengguna, Prisma } from '../generated/prisma/client';
+import { waktuPelayanan } from '../hospital/hospital-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PasswordService } from '../auth/password.service';
@@ -263,19 +264,73 @@ export class DokterService {
 
   async nonaktifkanLayanan(id: string, layananId: string) {
     await this.ensureDokterExists(id);
-    const relasi = await this.prisma.dokterLayanan.findUnique({
-      where: { dokterId_layananId: { dokterId: id, layananId } },
-      select: { id: true },
-    });
-    if (!relasi) {
-      throw new NotFoundException('Relasi dokter dan layanan tidak ditemukan');
-    }
-
     try {
-      return await this.prisma.dokterLayanan.update({
-        where: { id: relasi.id },
-        data: { aktif: false },
-      });
+      // Soft unlink agar riwayat sesi dan tiket tetap memiliki relasi valid.
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const relasi = await tx.dokterLayanan.findUnique({
+            where: { dokterId_layananId: { dokterId: id, layananId } },
+          });
+          if (!relasi) {
+            throw new NotFoundException('Relasi dokter dan layanan tidak ditemukan');
+          }
+          if (!relasi.aktif) return relasi;
+
+          const now = new Date();
+          // Jangan memutus relasi yang masih dipakai jadwal mendatang.
+          const sesiAktif = await tx.jadwalPraktik.count({
+            where: {
+              dokterLayananId: relasi.id,
+              aktif: true,
+              selesaiPada: { gt: now },
+            },
+          });
+          if (sesiAktif > 0) {
+            throw new ConflictException(
+              'Masih ada sesi praktik aktif yang belum berakhir. Nonaktifkan atau selesaikan jadwal terkait sebelum memutus hubungan dokter.',
+            );
+          }
+
+          // Periksa juga reservasi yang belum terminal meskipun sesi tidak aktif.
+          const reservasiAktif = await tx.janjiTemu.count({
+            where: {
+              slotPraktik: {
+                is: {
+                  jadwalPraktik: {
+                    is: { dokterLayananId: relasi.id },
+                  },
+                },
+              },
+              tiket: {
+                is: {
+                  tanggalAntrean: { gte: waktuPelayanan(now).tanggalDb },
+                  status: {
+                    in: [
+                      'DIPESAN',
+                      'CHECK_IN',
+                      'MENUNGGU',
+                      'DIPANGGIL',
+                      'DILAYANI',
+                      'DILEWATI',
+                    ],
+                  },
+                },
+              },
+            },
+          });
+          if (reservasiAktif > 0) {
+            throw new ConflictException(
+              'Masih ada reservasi pasien yang belum selesai pada layanan dokter ini. Selesaikan atau batalkan reservasi terlebih dahulu.',
+            );
+          }
+
+          return tx.dokterLayanan.update({
+            where: { id: relasi.id },
+            data: { aktif: false },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error: unknown) {
       this.handleDatabaseError(error);
     }
@@ -299,6 +354,11 @@ export class DokterService {
       if (error.code === 'P2025') {
         throw new NotFoundException(
           'Dokter atau relasi layanan tidak ditemukan',
+        );
+      }
+      if (error.code === 'P2034') {
+        throw new ConflictException(
+          'Data jadwal berubah bersamaan. Muat ulang, lalu coba lagi.',
         );
       }
     }

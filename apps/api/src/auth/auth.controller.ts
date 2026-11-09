@@ -5,6 +5,9 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +22,9 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { PeranPengguna } from '../generated/prisma/client';
 import { ProfileService } from './profile/profile.service';
 import { authAuditContext } from './audit/auth-audit.service';
 
@@ -94,6 +100,28 @@ export class AuthController {
     @Headers('x-queueb-client') client?: string,
   ) {
     return this.authService.refresh(dto, authAuditContext(client));
+  }
+
+  // =====================================
+  // ADMIN: RESET KATA SANDI DOKTER / PETUGAS
+  // =====================================
+  @Patch('admin/accounts/:id/password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard, ThrottlerGuard)
+  @Roles(PeranPengguna.ADMIN)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  resetStaffPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { kataSandiBaru?: unknown },
+    @CurrentUser() admin: AuthenticatedUser,
+    @Headers('x-queueb-client') client?: string,
+  ) {
+    return this.authService.adminResetStaffPassword(
+      admin,
+      id,
+      body?.kataSandiBaru,
+      authAuditContext(client),
+    );
   }
 
   // =====================================

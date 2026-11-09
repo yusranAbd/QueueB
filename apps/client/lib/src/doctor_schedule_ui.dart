@@ -72,7 +72,7 @@ class DoctorProfileCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 13,
                           height: 1.35,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w400,
                           color: PatientDesign.primary,
                         ),
                       ),
@@ -105,7 +105,7 @@ class DoctorProfileCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.35,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         color: PatientDesign.ink,
                       ),
                     ),
@@ -470,7 +470,7 @@ class ConsultationSlotGrid extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     height: 1.25,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     color: selected
                         ? PatientDesign.paper
                         : available
