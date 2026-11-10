@@ -151,7 +151,22 @@ function Test-PreviewPort([int]$Port) {
     finally { $tcp.Dispose() }
 }
 
-function Get-PreviewHttp([string]$Url, [string]$Origin = '', [string]$InstanceId = '', [switch]$HashBody) {
+function Get-PreviewHttp([string]$Url, [string]$Origin = '', [string]$InstanceId = '', [switch]$HashBody, [int]$Attempts = 3) {
+    # Retry hanya untuk timeout/pembatalan (mis. Flutter masih kompilasi); error lain langsung dilempar.
+    for ($attempt = 1; ; $attempt++) {
+        try { return Get-PreviewHttpOnce -Url $Url -Origin $Origin -InstanceId $InstanceId -HashBody:$HashBody }
+        catch {
+            $timedOut = $false
+            for ($ex = $_.Exception; $null -ne $ex; $ex = $ex.InnerException) {
+                if ($ex -is [Threading.Tasks.TaskCanceledException] -or $ex -is [OperationCanceledException] -or $ex -is [TimeoutException] -or $ex.Message -match 'task was canceled|timed out') { $timedOut = $true; break }
+            }
+            if (-not $timedOut -or $attempt -ge $Attempts) { throw }
+            Start-Sleep -Seconds 2
+        }
+    }
+}
+
+function Get-PreviewHttpOnce([string]$Url, [string]$Origin = '', [string]$InstanceId = '', [switch]$HashBody) {
     Add-Type -AssemblyName System.Net.Http
     $handler = New-Object System.Net.Http.HttpClientHandler
     $handler.UseProxy = $false; $handler.UseCookies = $false; $handler.AllowAutoRedirect = $false
