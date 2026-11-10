@@ -103,7 +103,9 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
       !['localhost', '127.0.0.1'].includes(url.hostname) ||
       url.port !== '5433'
     ) {
-      throw new Error('Broadcast E2E hanya boleh memakai capstone_antrean_test lokal port 5433');
+      throw new Error(
+        'Broadcast E2E hanya boleh memakai capstone_antrean_test lokal port 5433',
+      );
     }
     // Penugasan room saat ini memakai Asia/Jakarta, sama dengan default QueueService.
     if ((process.env.SERVICE_TIME_ZONE ?? 'Asia/Jakarta') !== 'Asia/Jakarta') {
@@ -111,7 +113,10 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
     }
   }
 
-  async function buatAkun(nama: string, peran: PeranPengguna): Promise<AkunE2e> {
+  async function buatAkun(
+    nama: string,
+    peran: PeranPengguna,
+  ): Promise<AkunE2e> {
     const email = `broadcast-${randomUUID()}@test.local`;
     const registrasi = await request(server())
       .post('/api/v1/auth/register')
@@ -150,15 +155,19 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
     return client;
   }
 
-  async function gabungRoom(client: ClientSocket, id: string): Promise<unknown> {
-    const hasil: unknown = await client.timeout(5000).emitWithAck(
-      'queue:join',
-      { layananId: id },
-    );
+  async function gabungRoom(
+    client: ClientSocket,
+    id: string,
+  ): Promise<unknown> {
+    const hasil: unknown = await client
+      .timeout(5000)
+      .emitWithAck('queue:join', { layananId: id });
     return hasil;
   }
 
-  async function sambungkanKeRoom(token: string = petugasA.token): Promise<ClientSocket> {
+  async function sambungkanKeRoom(
+    token: string = petugasA.token,
+  ): Promise<ClientSocket> {
     const client = await socketPetugas(token);
     const balasan = await gabungRoom(client, layananId);
     expect(balasan).toEqual({ ok: true, layananId });
@@ -177,7 +186,8 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
   }
 
   async function postAntrean(
-    aksi: 'ENQUEUE' | 'CALL' | 'RECALL' | 'SKIP' | 'REQUEUE' | 'START' | 'COMPLETE',
+    aksi:
+      'ENQUEUE' | 'CALL' | 'RECALL' | 'SKIP' | 'REQUEUE' | 'START' | 'COMPLETE',
     token: string = petugasA.token,
   ) {
     const rute: Record<typeof aksi, string> = {
@@ -202,12 +212,13 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ThrottlerStorage)
       .useValue({
-        increment: () => Promise.resolve({
-          totalHits: 1,
-          timeToExpire: 60000,
-          isBlocked: false,
-          timeToBlockExpire: 0,
-        }),
+        increment: () =>
+          Promise.resolve({
+            totalHits: 1,
+            timeToExpire: 60000,
+            isBlocked: false,
+            timeToBlockExpire: 0,
+          }),
       })
       .compile();
 
@@ -318,7 +329,9 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
       });
     }
     if (prisma && tiketId) {
-      await db().peristiwaAntrean.deleteMany({ where: { tiketAntreanId: tiketId } });
+      await db().peristiwaAntrean.deleteMany({
+        where: { tiketAntreanId: tiketId },
+      });
       await db().tiketAntrean.deleteMany({ where: { id: tiketId } });
       tiketId = '';
     }
@@ -329,7 +342,8 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
       if (prisma) {
         if (layananId) {
           const tiketTersisa = await db().tiketAntrean.findMany({
-            where: { layananId }, select: { id: true },
+            where: { layananId },
+            select: { id: true },
           });
           const tiketIds = tiketTersisa.map((item) => item.id);
           if (tiketIds.length) {
@@ -351,7 +365,12 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
           await db().sesiPengguna.deleteMany({
             where: { penggunaId: { in: penggunaIds } },
           });
-          await db().pengguna.deleteMany({ where: { id: { in: penggunaIds } } });
+          await db().notifikasi.deleteMany({
+            where: { penggunaId: { in: penggunaIds } },
+          });
+          await db().pengguna.deleteMany({
+            where: { id: { in: penggunaIds } },
+          });
         }
       }
     } finally {
@@ -383,8 +402,14 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
   it('mengirim ENQUEUE, CALL, RECALL, SKIP, REQUEUE, START, COMPLETE via jaringan', async () => {
     await sambungkanKeRoom();
     const urutan: JenisPerubahanAntrean[] = [
-      'ENQUEUE', 'CALL', 'RECALL', 'SKIP',
-      'REQUEUE', 'CALL', 'START', 'COMPLETE',
+      'ENQUEUE',
+      'CALL',
+      'RECALL',
+      'SKIP',
+      'REQUEUE',
+      'CALL',
+      'START',
+      'COMPLETE',
     ];
     for (const [indeks, aksi] of urutan.entries()) {
       const respons = await postAntrean(aksi);
@@ -395,14 +420,18 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
     const idUnik = new Set(eventMasuk.map((event) => event.eventId));
     expect(idUnik.size).toBe(urutan.length);
     expect(eventMasuk[urutan.length - 1]?.status).toBe(StatusTiket.SELESAI);
-    const tiket = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+    const tiket = await db().tiketAntrean.findUniqueOrThrow({
+      where: { id: tiketId },
+    });
     expect(tiket.status).toBe(StatusTiket.SELESAI);
   }, 60000);
 
   it('rollback CALL karena audit gagal tidak mengirim event', async () => {
     expect((await postAntrean('ENQUEUE')).status).toBe(200);
     await sambungkanKeRoom();
-    const sebelum = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+    const sebelum = await db().tiketAntrean.findUniqueOrThrow({
+      where: { id: tiketId },
+    });
     // Proteksi DDL: hostname, nama DB, port, current_database, dan UUID diverifikasi.
     wajibDatabaseTesting();
     const namaDatabase = await db().$queryRaw<Array<{ nama: string }>>`
@@ -432,18 +461,24 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
         );
       }
     }
-    const sesudah = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+    const sesudah = await db().tiketAntrean.findUniqueOrThrow({
+      where: { id: tiketId },
+    });
     expect(sesudah.status).toBe(StatusTiket.MENUNGGU);
     expect(sesudah.versi).toBe(sebelum.versi);
-    expect(await db().peristiwaAntrean.count({
-      where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-    })).toBe(0);
+    expect(
+      await db().peristiwaAntrean.count({
+        where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+      }),
+    ).toBe(0);
   }, 60000);
 
   it('room layanan tanpa penugasan ditolak dan tidak menerima event', async () => {
     const client = await socketPetugas(petugasA.token);
-    expect(await gabungRoom(client, layananLainId))
-      .toEqual({ ok: false, kode: 'FORBIDDEN' });
+    expect(await gabungRoom(client, layananLainId)).toEqual({
+      ok: false,
+      kode: 'FORBIDDEN',
+    });
     client.on('queue:updated', (payload: QueueUpdatedEvent) => {
       eventMasuk.push(payload);
     });
@@ -465,8 +500,10 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
     await jeda(350);
     expect(eventMasuk).toHaveLength(0);
     // Join baru sesudah pencabutan masih harus ditolak.
-    expect(await gabungRoom(client, layananId))
-      .toEqual({ ok: false, kode: 'FORBIDDEN' });
+    expect(await gabungRoom(client, layananId)).toEqual({
+      ok: false,
+      kode: 'FORBIDDEN',
+    });
   }, 30000);
 
   it('sesi dicabut setelah join: event ditahan dan socket diputus', async () => {

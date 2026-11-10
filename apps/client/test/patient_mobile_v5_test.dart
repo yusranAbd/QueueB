@@ -92,10 +92,7 @@ void main() {
           expect(find.byTooltip('Profil akun'), findsNothing);
           expect(find.byType(PatientHomeIdentity), findsNothing);
           expect(
-            t
-                .widget<Text>(find.text('Semoga harimu sehat dan lancar'))
-                .style!
-                .fontSize,
+            t.widget<Text>(find.textContaining('Halo, ')).style!.fontSize,
             lessThanOrEqualTo(20),
           );
           final visit = find.byType(PatientHomeVisitV8);

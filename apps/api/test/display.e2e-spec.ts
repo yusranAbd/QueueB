@@ -12,6 +12,10 @@ import { StatusTiket } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import type { DisplaySnapshot } from '../src/display/display-snapshot.types';
 
+// Tes memverifikasi kebijakan nama default (SAMAR), terlepas dari mode demo pada .env.
+process.env.DISPLAY_PATIENT_NAME_MODE = 'SAMAR';
+delete process.env.DISPLAY_FULL_NAMES_APPROVED;
+
 describe('Public Display Snapshot (e2e)', () => {
   const unik = randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
   const token = randomBytes(32).toString('hex');
@@ -44,20 +48,29 @@ describe('Public Display Snapshot (e2e)', () => {
       !['localhost', '127.0.0.1'].includes(url.hostname) ||
       url.port !== '5433'
     ) {
-      throw new Error('E2E Display hanya boleh memakai capstone_antrean_test lokal port 5433');
+      throw new Error(
+        'E2E Display hanya boleh memakai capstone_antrean_test lokal port 5433',
+      );
     }
     if ((process.env.SERVICE_TIME_ZONE ?? 'Asia/Jakarta') !== 'Asia/Jakarta') {
-      throw new Error('E2E Display mensyaratkan SERVICE_TIME_ZONE=Asia/Jakarta');
+      throw new Error(
+        'E2E Display mensyaratkan SERVICE_TIME_ZONE=Asia/Jakarta',
+      );
     }
   }
 
   function tanggalLayanan(): Date {
     const bagian = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     }).formatToParts(new Date());
     const ambil = (jenis: string): string =>
       bagian.find((item) => item.type === jenis)?.value ?? '';
-    return new Date(`${ambil('year')}-${ambil('month')}-${ambil('day')}T00:00:00.000Z`);
+    return new Date(
+      `${ambil('year')}-${ambil('month')}-${ambil('day')}T00:00:00.000Z`,
+    );
   }
 
   function bacaSnapshot(kunci: string = token, layanan: string = layananId) {
@@ -71,9 +84,13 @@ describe('Public Display Snapshot (e2e)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ThrottlerStorage)
       .useValue({
-        increment: () => Promise.resolve({
-          totalHits: 1, timeToExpire: 60000, isBlocked: false, timeToBlockExpire: 0,
-        }),
+        increment: () =>
+          Promise.resolve({
+            totalHits: 1,
+            timeToExpire: 60000,
+            isBlocked: false,
+            timeToBlockExpire: 0,
+          }),
       })
       .compile();
     app = moduleRef.createNestApplication();
@@ -114,7 +131,9 @@ describe('Public Display Snapshot (e2e)', () => {
     perangkatId = perangkat.id;
     const tiket = await db().tiketAntrean.create({
       data: {
-        penggunaId, layananId, loketId,
+        penggunaId,
+        layananId,
+        loketId,
         tanggalAntrean: tanggalLayanan(),
         nomorUrut: 25,
         kodeTiket: `TK${randomBytes(12).toString('hex').toUpperCase()}`,
@@ -140,10 +159,12 @@ describe('Public Display Snapshot (e2e)', () => {
   afterEach(async () => {
     if (!prisma || !perangkatId || !tiketId) return;
     await db().perangkatTampilan.update({
-      where: { id: perangkatId }, data: { aktif: true },
+      where: { id: perangkatId },
+      data: { aktif: true },
     });
     await db().tiketAntrean.update({
-      where: { id: tiketId }, data: { status: StatusTiket.DIPANGGIL },
+      where: { id: tiketId },
+      data: { status: StatusTiket.DIPANGGIL },
     });
     await db().peristiwaAntrean.deleteMany({
       where: { tiketAntreanId: tiketId, id: { not: auditId } },
@@ -154,13 +175,23 @@ describe('Public Display Snapshot (e2e)', () => {
     try {
       if (prisma) {
         if (tiketId) {
-          await db().peristiwaAntrean.deleteMany({ where: { tiketAntreanId: tiketId } });
+          await db().peristiwaAntrean.deleteMany({
+            where: { tiketAntreanId: tiketId },
+          });
           await db().tiketAntrean.deleteMany({ where: { id: tiketId } });
         }
-        if (perangkatId) await db().perangkatTampilan.deleteMany({ where: { id: perangkatId } });
+        if (perangkatId)
+          await db().perangkatTampilan.deleteMany({
+            where: { id: perangkatId },
+          });
         if (loketId) await db().loket.deleteMany({ where: { id: loketId } });
-        if (layananId) await db().layanan.deleteMany({ where: { id: layananId } });
-        if (penggunaId) await db().pengguna.deleteMany({ where: { id: penggunaId } });
+        if (layananId)
+          await db().layanan.deleteMany({ where: { id: layananId } });
+        if (penggunaId)
+          await db().notifikasi.deleteMany({
+            where: { penggunaId: penggunaId },
+          });
+        await db().pengguna.deleteMany({ where: { id: penggunaId } });
       }
     } finally {
       if (app) await app.close();
@@ -174,7 +205,12 @@ describe('Public Display Snapshot (e2e)', () => {
     expect(body).toMatchObject({
       versiSkema: 1,
       layanan: { nama: 'Layanan Display E2E' },
-      loket: [{ kode: '03', tiketAktif: [{ nomorAntrean: 'D-025', status: 'DIPANGGIL' }] }],
+      loket: [
+        {
+          kode: '03',
+          tiketAktif: [{ nomorAntrean: 'D-025', status: 'DIPANGGIL' }],
+        },
+      ],
       pengumumanTerakhir: {
         peristiwaId: auditId,
         aksi: 'CALL',
@@ -191,13 +227,18 @@ describe('Public Display Snapshot (e2e)', () => {
   });
 
   it('menolak request tanpa token dan token yang salah', async () => {
-    await request(server()).get(`/api/v1/display/${layananId}/snapshot`).expect(401);
+    await request(server())
+      .get(`/api/v1/display/${layananId}/snapshot`)
+      .expect(401);
     await bacaSnapshot('b'.repeat(64)).expect(401);
   });
 
   it('menolak perangkat pada layanan berbeda dan perangkat yang dicabut', async () => {
     await bacaSnapshot(token, randomUUID()).expect(403);
-    await db().perangkatTampilan.update({ where: { id: perangkatId }, data: { aktif: false } });
+    await db().perangkatTampilan.update({
+      where: { id: perangkatId },
+      data: { aktif: false },
+    });
     await bacaSnapshot().expect(403);
   });
 
@@ -213,13 +254,15 @@ describe('Public Display Snapshot (e2e)', () => {
     const res = await bacaSnapshot().expect(200);
     const body = res.body as DisplaySnapshot;
     expect(body.pengumumanTerakhir).toMatchObject({
-      aksi: 'RECALL', peristiwaId: baru.id,
+      aksi: 'RECALL',
+      peristiwaId: baru.id,
     });
   });
 
   it('tidak menawarkan TTS panggilan lama setelah tiket mulai DILAYANI', async () => {
     await db().tiketAntrean.update({
-      where: { id: tiketId }, data: { status: StatusTiket.DILAYANI },
+      where: { id: tiketId },
+      data: { status: StatusTiket.DILAYANI },
     });
     const res = await bacaSnapshot().expect(200);
     const body = res.body as DisplaySnapshot;
@@ -232,31 +275,54 @@ describe('Public Display Snapshot (e2e)', () => {
     try {
       delete process.env.DISPLAY_PATIENT_NAME_MODE;
       delete process.env.DISPLAY_FULL_NAMES_APPROVED;
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.MENUNGGU } });
-      const waiting = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: { status: StatusTiket.MENUNGGU },
+      });
+      const waiting = (await bacaSnapshot().expect(200))
+        .body as DisplaySnapshot;
       expect(waiting.totalMenunggu).toBe(1);
-      expect(waiting.menunggu).toEqual([{ nomorAntrean: 'D-025', namaPasien: 'Pemilik T. D. E.' }]);
-      expect(JSON.stringify(waiting)).not.toContain('Pemilik Tiket Display E2E');
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.DIPANGGIL } });
+      expect(waiting.menunggu).toEqual([
+        { nomorAntrean: 'D-025', namaPasien: 'Pemilik T. D. E.' },
+      ]);
+      expect(JSON.stringify(waiting)).not.toContain(
+        'Pemilik Tiket Display E2E',
+      );
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: { status: StatusTiket.DIPANGGIL },
+      });
       process.env.DISPLAY_PATIENT_NAME_MODE = 'LENGKAP';
-      expect(((await bacaSnapshot().expect(200)).body as DisplaySnapshot).modeNama).toBe('SAMAR');
+      expect(
+        ((await bacaSnapshot().expect(200)).body as DisplaySnapshot).modeNama,
+      ).toBe('SAMAR');
       process.env.DISPLAY_FULL_NAMES_APPROVED = 'true';
       const full = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
-      expect(full.loket[0].tiketAktif[0].namaPasien).toBe('Pemilik Tiket Display E2E');
-      expect(full.pengumumanTerakhir?.teks).toContain('atas nama Pemilik Tiket Display E2E');
+      expect(full.loket[0].tiketAktif[0].namaPasien).toBe(
+        'Pemilik Tiket Display E2E',
+      );
+      expect(full.pengumumanTerakhir?.teks).toContain(
+        'atas nama Pemilik Tiket Display E2E',
+      );
       expect(full.menunggu).toEqual([]);
       process.env.DISPLAY_PATIENT_NAME_MODE = 'TANPA_NAMA';
       const hidden = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
       expect(hidden.loket[0].tiketAktif[0].namaPasien).toBeNull();
       expect(hidden.pengumumanTerakhir?.teks).not.toContain('atas nama');
     } finally {
-      if (mode === undefined) delete process.env.DISPLAY_PATIENT_NAME_MODE; else process.env.DISPLAY_PATIENT_NAME_MODE = mode;
-      if (approved === undefined) delete process.env.DISPLAY_FULL_NAMES_APPROVED; else process.env.DISPLAY_FULL_NAMES_APPROVED = approved;
+      if (mode === undefined) delete process.env.DISPLAY_PATIENT_NAME_MODE;
+      else process.env.DISPLAY_PATIENT_NAME_MODE = mode;
+      if (approved === undefined)
+        delete process.env.DISPLAY_FULL_NAMES_APPROVED;
+      else process.env.DISPLAY_FULL_NAMES_APPROVED = approved;
     }
   });
 
   it('tiket dibatalkan tidak masuk daftar menunggu atau pengumuman', async () => {
-    await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.DIBATALKAN } });
+    await db().tiketAntrean.update({
+      where: { id: tiketId },
+      data: { status: StatusTiket.DIBATALKAN },
+    });
     const body = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
     expect(body.totalMenunggu).toBe(0);
     expect(body.menunggu).toEqual([]);
@@ -266,17 +332,27 @@ describe('Public Display Snapshot (e2e)', () => {
   });
 
   it('SKIP tampil DILEWATI dan REQUEUE berpindah status tanpa duplikasi', async () => {
-    await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.DILEWATI } });
+    await db().tiketAntrean.update({
+      where: { id: tiketId },
+      data: { status: StatusTiket.DILEWATI },
+    });
     const skipped = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
     expect(skipped.totalMenunggu).toBe(0);
     expect(skipped.totalDilewati).toBe(1);
     expect(skipped.totalAntrianPasien).toBe(1);
     expect(skipped.antrianPasien).toEqual([
-      { nomorAntrean: 'D-025', namaPasien: 'Pemilik T. D. E.', status: 'DILEWATI' },
+      {
+        nomorAntrean: 'D-025',
+        namaPasien: 'Pemilik T. D. E.',
+        status: 'DILEWATI',
+      },
     ]);
     expect(skipped.menunggu).toEqual([]);
     expect(skipped.pengumumanTerakhir).toBeNull();
-    await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.MENUNGGU } });
+    await db().tiketAntrean.update({
+      where: { id: tiketId },
+      data: { status: StatusTiket.MENUNGGU },
+    });
     const requeued = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
     expect(requeued.totalDilewati).toBe(0);
     expect(requeued.totalAntrianPasien).toBe(1);
@@ -288,17 +364,34 @@ describe('Public Display Snapshot (e2e)', () => {
     try {
       process.env.DISPLAY_PATIENT_NAME_MODE = 'LENGKAP';
       process.env.DISPLAY_FULL_NAMES_APPROVED = 'true';
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { status: StatusTiket.DILEWATI } });
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: { status: StatusTiket.DILEWATI },
+      });
       const full = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
-      expect(full.antrianPasien?.[0].namaPasien).toBe('Pemilik Tiket Display E2E');
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { tanggalAntrean: new Date(tanggalLayanan().getTime() - 86400000) } });
-      const previousDay = (await bacaSnapshot().expect(200)).body as DisplaySnapshot;
+      expect(full.antrianPasien?.[0].namaPasien).toBe(
+        'Pemilik Tiket Display E2E',
+      );
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: {
+          tanggalAntrean: new Date(tanggalLayanan().getTime() - 86400000),
+        },
+      });
+      const previousDay = (await bacaSnapshot().expect(200))
+        .body as DisplaySnapshot;
       expect(previousDay.antrianPasien).toEqual([]);
       expect(previousDay.totalAntrianPasien).toBe(0);
     } finally {
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { tanggalAntrean: tanggalLayanan() } });
-      if (mode === undefined) delete process.env.DISPLAY_PATIENT_NAME_MODE; else process.env.DISPLAY_PATIENT_NAME_MODE = mode;
-      if (approved === undefined) delete process.env.DISPLAY_FULL_NAMES_APPROVED; else process.env.DISPLAY_FULL_NAMES_APPROVED = approved;
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: { tanggalAntrean: tanggalLayanan() },
+      });
+      if (mode === undefined) delete process.env.DISPLAY_PATIENT_NAME_MODE;
+      else process.env.DISPLAY_PATIENT_NAME_MODE = mode;
+      if (approved === undefined)
+        delete process.env.DISPLAY_FULL_NAMES_APPROVED;
+      else process.env.DISPLAY_FULL_NAMES_APPROVED = approved;
     }
   });
 });

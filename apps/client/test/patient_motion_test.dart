@@ -365,7 +365,7 @@ void main() {
     await tester.pumpAndSettle();
     await openPatientCatalog(tester, walkIn: true);
 
-    await press(tester, find.widgetWithText(FilledButton, 'Reservasi walk-in'));
+    await press(tester, find.widgetWithText(FilledButton, 'Reservasi Walk-in'));
     await tester.tap(find.widgetWithText(FilledButton, 'Lanjutkan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

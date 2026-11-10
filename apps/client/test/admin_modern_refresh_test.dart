@@ -166,12 +166,24 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.textContaining('Administrator QA!'), findsOneWidget);
-        await tester.ensureVisible(find.text('Kelola Layanan Terpadu'));
+        expect(find.text('Dashboard Operasional'), findsOneWidget);
+        // Dashboard memakai ListView lazy; gulir hingga panel target terbangun.
+        Future<void> reveal(Finder target) async {
+          for (var i = 0; i < 40 && target.evaluate().isEmpty; i++) {
+            await tester.drag(
+              find.byType(SingleChildScrollView).first,
+              const Offset(0, -300),
+            );
+            await tester.pumpAndSettle();
+          }
+          await tester.ensureVisible(target);
+        }
+
+        await reveal(find.text('Kelola Layanan Terpadu'));
         await tester.tap(find.text('Kelola Layanan Terpadu'));
         expect(setup, 1);
-        await tester.ensureVisible(find.text('Kelola'));
-        await tester.tap(find.text('Kelola'));
+        await reveal(find.text('Kelola Layanan').first);
+        await tester.tap(find.text('Kelola Layanan').first);
         expect(destination, 0);
         expect(tester.takeException(), isNull);
         if (fontRoot != null &&
@@ -203,43 +215,50 @@ void main() {
       });
     }
   }
-  testWidgets(
-    'Dashboard table keeps access to services beyond the first page',
-    (tester) async {
-      final many = {
-        ...catalog,
-        '/layanan': [
-          for (var i = 0; i < 17; i++)
-            {
-              'id': 'service-$i',
-              'nama': 'Layanan ${i.toString().padLeft(2, '0')}',
-              'aktif': true,
-            },
-        ],
-      };
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AdminStyle.theme,
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: AdminDashboard(
-                catalog: many,
-                config: config,
-                loading: false,
-                onSelect: (_) {},
-              ),
+  testWidgets('Dashboard table keeps access to services beyond the first page', (
+    tester,
+  ) async {
+    final many = {
+      ...catalog,
+      '/layanan': [
+        for (var i = 0; i < 17; i++)
+          {
+            'id': 'service-$i',
+            'nama': 'Layanan ${i.toString().padLeft(2, '0')}',
+            'aktif': true,
+          },
+      ],
+    };
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminStyle.theme,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AdminDashboard(
+              catalog: many,
+              config: config,
+              loading: false,
+              onSelect: (_) {},
             ),
           ),
         ),
-      );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Layanan 00'), findsOneWidget);
+    // Navigasi halaman layanan kini bertahap (berikutnya) hingga halaman akhir.
+    final next = find.ancestor(
+      of: find.byTooltip('Layanan berikutnya'),
+      matching: find.byType(IconButton),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.ensureVisible(next);
+      final button = tester.widget<IconButton>(next);
+      if (button.onPressed == null) break;
+      await tester.tap(next);
       await tester.pumpAndSettle();
-      expect(find.text('Layanan 00'), findsOneWidget);
-      final last = find.byTooltip('Halaman terakhir');
-      await tester.ensureVisible(last);
-      await tester.tap(last);
-      await tester.pumpAndSettle();
-      expect(find.text('Layanan 16'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    }
+    expect(find.text('Layanan 16'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -98,7 +98,7 @@ void main() {
               find.widgetWithText(NavigationDestination, 'Reservasi'),
             );
             await tester.pumpAndSettle();
-            expect(find.text('UM-001'), findsOneWidget);
+            expect(find.text('Antrean UM-001'), findsOneWidget);
           }
         }
         expect(tester.takeException(), isNull);

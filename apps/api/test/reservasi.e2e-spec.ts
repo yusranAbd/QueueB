@@ -276,6 +276,12 @@ describe('Reservasi Antrean API (e2e)', () => {
     try {
       if (prisma) {
         if (layananIds.length > 0) {
+          await prisma.peristiwaAntrean.deleteMany({
+            where: { tiketAntrean: { layananId: { in: layananIds } } },
+          });
+          await prisma.notifikasi.deleteMany({
+            where: { tiketAntrean: { layananId: { in: layananIds } } },
+          });
           await prisma.tiketAntrean.deleteMany({
             where: {
               layananId: {
@@ -318,6 +324,13 @@ describe('Reservasi Antrean API (e2e)', () => {
             },
           });
 
+          await prisma.notifikasi.deleteMany({
+            where: {
+              penggunaId: {
+                in: penggunaIds,
+              },
+            },
+          });
           await prisma.pengguna.deleteMany({
             where: {
               id: {

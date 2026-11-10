@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:queueb_client/src/patient_home_appointment_card.dart';
 import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
@@ -137,7 +138,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-mode-appointment')));
       await tester.pumpAndSettle();
-      expect(find.byType(PatientHomeDoctorV6), findsNothing);
+      expect(find.byType(PatientHomeAppointmentCard), findsNothing);
       expect(
         find.text('Belum ada dokter dengan jadwal praktik hari ini.'),
         findsOneWidget,
@@ -145,16 +146,16 @@ void main() {
       backend.homeScheduleDay = backend.today;
       await tester.pump(const Duration(seconds: 31));
       await tester.pumpAndSettle();
-      expect(find.byType(PatientHomeDoctorV6), findsOneWidget);
+      expect(find.byType(PatientHomeAppointmentCard), findsOneWidget);
       backend.failHomeSchedule = true;
       await tester.pump(const Duration(seconds: 31));
       await tester.pumpAndSettle();
       expect(find.text('Jadwal praktik belum dapat dimuat.'), findsOneWidget);
-      expect(find.byType(PatientHomeDoctorV6), findsNothing);
+      expect(find.byType(PatientHomeAppointmentCard), findsNothing);
       backend.failHomeSchedule = false;
       await tester.tap(find.text('Muat ulang jadwal'));
       await tester.pumpAndSettle();
-      expect(find.byType(PatientHomeDoctorV6), findsOneWidget);
+      expect(find.byType(PatientHomeAppointmentCard), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

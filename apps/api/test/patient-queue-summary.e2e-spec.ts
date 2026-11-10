@@ -244,6 +244,9 @@ describe('Patient queue summary, persisted PostgreSQL and authenticated realtime
       await db!.sesiPengguna.deleteMany({
         where: { penggunaId: { in: users.map((u) => u.id) } },
       });
+      await db!.notifikasi.deleteMany({
+        where: { penggunaId: { in: users.map((u) => u.id) } },
+      });
       await db!.pengguna.deleteMany({
         where: { id: { in: users.map((u) => u.id) } },
       });

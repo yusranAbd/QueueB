@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:queueb_client/src/patient_home_appointment_card.dart';
 import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
@@ -61,22 +62,39 @@ void main() {
       await t.drag(pages, Offset(-size.width * .8, 0));
       await t.pumpAndSettle();
       expect(controller().index, 1);
-      expect(find.byType(PatientHomeDoctor), findsOneWidget);
-      final card = t.widget<PatientHomeDoctor>(find.byType(PatientHomeDoctor));
+      expect(find.byType(PatientHomeAppointmentCard), findsOneWidget);
+      final card = t.widget<PatientHomeAppointmentCard>(
+        find.byType(PatientHomeAppointmentCard),
+      );
       expect(card.preview.doctor['nama'], 'dr. Sindi QA');
       expect(card.preview.session?['id'], 'session-home');
-      expect(find.text('Detail Dokter'), findsOneWidget);
+      expect(find.text('dr. Sindi QA'), findsWidgets);
       // Swipe on the doctor content, away from the independently scrollable
       // clinic chips (whose horizontal gesture deliberately stays local).
-      await t.ensureVisible(find.byType(PatientHomeDoctor));
+      await t.ensureVisible(find.byType(PatientHomeAppointmentCard));
       await t.pumpAndSettle();
-      await t.drag(find.byType(PatientHomeDoctor), Offset(size.width * .8, 0));
+      await t.drag(
+        find.byType(PatientHomeAppointmentCard),
+        Offset(size.width * .8, 0),
+      );
       await t.pumpAndSettle();
       expect(controller().index, 0);
       await t.tap(find.byKey(const ValueKey('home-mode-appointment')));
       await t.pumpAndSettle();
       expect(controller().index, 1);
-      final filters = find.byType(SingleChildScrollView).first;
+      // Kembali ke atas agar baris filter poliklinik terbangun.
+      await t.fling(
+        find.byType(PatientHomeAppointmentCard),
+        const Offset(0, 600),
+        1500,
+      );
+      await t.pumpAndSettle();
+      final filters = find
+          .ancestor(
+            of: find.widgetWithText(ChoiceChip, 'Semua layanan'),
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first;
       await t.ensureVisible(filters);
       await t.pumpAndSettle();
       await t.drag(filters, const Offset(-180, 0));

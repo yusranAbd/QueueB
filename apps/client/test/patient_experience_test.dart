@@ -118,7 +118,19 @@ void main() {
     });
     await t.tap(find.widgetWithText(NavigationDestination, 'Reservasi'));
     await t.pumpAndSettle();
-    await t.tap(find.byType(FloatingActionButton));
+    final create = find.byKey(const ValueKey('create-reservation'));
+    await t.scrollUntilVisible(
+      create,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('reservation-list')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await t.ensureVisible(create);
+    await t.tap(create);
     await t.pumpAndSettle();
     expect(
       Theme.of(t.element(find.text('Pilih cara membuat reservasi.')))
@@ -132,7 +144,7 @@ void main() {
     await t.tap(find.text('Buka Tiket'));
     await t.pumpAndSettle();
     expect(
-      Theme.of(t.element(find.byType(AlertDialog))).colorScheme.primary,
+      Theme.of(t.element(find.byType(Dialog))).colorScheme.primary,
       PatientDesign.primary,
     );
     expect(t.takeException(), isNull);
@@ -159,7 +171,7 @@ void main() {
       });
       final search = find.widgetWithText(
         TextField,
-        'Cari layanan, poli, atau informasi...',
+        'Cari layanan, poli, atau dokter...',
       );
       await t.enterText(search, 'tidak-ada-dokter');
       await t.pumpAndSettle();

@@ -302,7 +302,7 @@ void main() {
         expect(backend.requests.where((r) => r.$1 != 'GET'), isEmpty);
         router.go('/patient/tickets');
         await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(Dialog), findsNothing);
         metric({
           'portal': 'ticket',
           'created': owners.created.whereType<PatientTicketCubit>().length,
@@ -445,10 +445,10 @@ void main() {
       final oldOwner = tester.state(find.byType(AdminPage));
       await tester.tap(find.widgetWithText(FilledButton, 'Tambah'));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
       api.change(id: 'second', role: 'ADMIN');
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
       expect(tester.state(find.byType(AdminPage)), isNot(same(oldOwner)));
       await tester.pumpWidget(const SizedBox());
       api.dispose();
@@ -590,8 +590,8 @@ void main() {
       );
       await openPatientCatalog(tester, walkIn: true);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Reservasi walk-in'));
-      await tester.tap(find.text('Reservasi walk-in'));
+      await tester.ensureVisible(find.text('Reservasi Walk-in'));
+      await tester.tap(find.text('Reservasi Walk-in'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Lanjutkan'));
       await tester.pump();

@@ -22,7 +22,7 @@ void main() {
     },
   };
 
-  test('menampilkan nama pertama penyedia layanan yang terjadwal', () {
+  test('menampilkan nama lengkap penyedia layanan yang terjadwal', () {
     expect(
       patientServiceScheduledProviderName(
         doctors: [provider],
@@ -30,7 +30,7 @@ void main() {
         serviceId: 'apotek',
         date: '2026-11-01',
       ),
-      'Savira',
+      'Savira Julia, S.Farm',
     );
   });
   test('tidak mencampur jadwal layanan atau tanggal lain', () {
@@ -63,7 +63,7 @@ void main() {
           serviceId: 'apotek',
           date: '2026-11-01',
         ),
-        'Savira',
+        'Savira Julia, S.Farm',
       );
     },
   );
@@ -75,7 +75,7 @@ void main() {
         serviceId: 'apotek',
         date: '2026-11-01',
       ),
-      'Savira',
+      'Savira Julia, S.Farm',
     );
   });
   test('tidak menampilkan dokter layanan lain', () {

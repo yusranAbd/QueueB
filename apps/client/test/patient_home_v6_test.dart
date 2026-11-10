@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:queueb_client/src/patient_home_v8.dart';
+import 'package:queueb_client/src/patient_home_v6.dart';
+import 'package:queueb_client/src/patient_home_appointment_card.dart';
 import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
@@ -33,7 +36,9 @@ void main() {
         {'id': 'closed', 'modeReservasi': 'HIBRIDA', 'aktif': false},
         {'id': 'missing'},
       ];
-      expect(homeWalkInClinics(clinics, [], ''), isEmpty);
+      expect(homeWalkInClinics(clinics, [], '').map((c) => c['id']), [
+        'HIBRIDA',
+      ]);
       final auxiliary = <Json>[
         {
           'id': 'registration',
@@ -54,7 +59,7 @@ void main() {
           [],
           '',
         ).map((c) => c['id']),
-        ['registration', 'pharmacy'],
+        ['registration', 'pharmacy', 'HIBRIDA'],
       );
       expect(auxiliary.where(supportsHomeAppointment), isEmpty);
       expect(clinics.where(supportsHomeAppointment).map((c) => c['id']), [
@@ -152,16 +157,18 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('home-mode-appointment')));
       await t.pumpAndSettle();
-      expect(find.byType(PatientHomeDoctorV6).evaluate().length, lessThan(30));
-      await t.scrollUntilVisible(
-        find.text('dr. Sindi QA 29'),
-        160,
-        scrollable: find
-            .byWidgetPredicate(
-              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
-            )
-            .first,
+      expect(
+        find.byType(PatientHomeAppointmentCard).evaluate().length,
+        lessThan(30),
       );
+      for (
+        var i = 0;
+        i < 60 && find.text('dr. Sindi QA 29').evaluate().isEmpty;
+        i++
+      ) {
+        await t.dragFrom(const Offset(200, 500), const Offset(0, -300));
+        await t.pumpAndSettle();
+      }
       expect(find.text('dr. Sindi QA 29'), findsOneWidget);
       expect(find.text('Poliklinik Nonaktif'), findsNothing);
       expect(t.takeException(), isNull);
@@ -189,12 +196,12 @@ void main() {
       addTearDown(api.dispose);
       await t.pumpWidget(QueueBApp(api: api));
       await t.pumpAndSettle();
-      await t.tap(find.byType(PatientHomeService));
+      await t.tap(find.byType(PatientServiceTicketV8).last);
       await t.pumpAndSettle();
-      expect(find.text('Reservasi walk-in'), findsOneWidget);
+      expect(find.text('Reservasi Walk-in'), findsWidgets);
       expect(b.requests.where((r) => r.$1 == 'POST'), isEmpty);
-      await t.ensureVisible(find.text('Reservasi walk-in'));
-      await t.tap(find.text('Reservasi walk-in'));
+      await t.ensureVisible(find.text('Reservasi Walk-in').last);
+      await t.tap(find.text('Reservasi Walk-in').last);
       await t.pumpAndSettle();
       expect(find.textContaining('Daftarkan walk-in'), findsOneWidget);
       expect(b.requests.where((r) => r.$1 == 'POST'), isEmpty);
@@ -206,7 +213,7 @@ void main() {
       await t.pumpAndSettle();
       await t.enterText(find.byType(TextField).first, 'Sindi');
       await t.pumpAndSettle();
-      expect(find.byType(PatientHomeDoctorV6), findsOneWidget);
+      expect(find.byType(PatientHomeAppointmentCard), findsOneWidget);
       await t.tap(find.widgetWithText(NavigationDestination, 'Reservasi'));
       await t.pumpAndSettle();
       await t.tap(find.widgetWithText(NavigationDestination, 'Beranda'));
@@ -215,7 +222,7 @@ void main() {
         t.widget<TextField>(find.byType(TextField).first).controller!.text,
         'Sindi',
       );
-      expect(find.byType(PatientHomeDoctorV6), findsOneWidget);
+      expect(find.byType(PatientHomeAppointmentCard), findsOneWidget);
       expect(t.takeException(), isNull);
     },
   );
@@ -247,9 +254,9 @@ void main() {
       );
       await t.tap(find.byKey(const ValueKey('home-mode-appointment')));
       await t.pumpAndSettle();
-      await t.tap(find.byType(PatientHomeDoctorV6));
+      await t.tap(find.byType(PatientHomeAppointmentCard));
       await t.pumpAndSettle();
-      expect(find.text('Lanjutkan Reservasi'), findsNothing);
+      expect(find.text('Konfirmasi Janji'), findsNothing);
       expect(find.text('Daftar antrean poliklinik'), findsOneWidget);
       final action = find.text('Daftar antrean poliklinik');
       await t.ensureVisible(action);
@@ -258,7 +265,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(action);
       await t.pumpAndSettle();
-      expect(find.text('Reservasi walk-in'), findsOneWidget);
+      expect(find.text('Reservasi Walk-in'), findsWidgets);
       expect(b.requests.where((r) => r.$1 == 'POST'), isEmpty);
       expect(t.takeException(), isNull);
     },

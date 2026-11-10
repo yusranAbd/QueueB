@@ -128,12 +128,9 @@ void main() {
 
   Future<void> review(WidgetTester tester) async {
     await clinic(tester);
-    await press(tester, find.text('Lihat Detail Dokter'));
-    await press(tester, find.text('Sisa slot 2'));
-    await press(
-      tester,
-      find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
-    );
+    await press(tester, find.text('Pilih Jadwal'));
+    await press(tester, find.text('09:00'));
+    await press(tester, find.widgetWithText(FilledButton, 'Konfirmasi Janji'));
   }
 
   Iterable<(String, String, Json)> bookings(PatientV2Backend backend) =>
@@ -182,7 +179,7 @@ void main() {
         find.textContaining('slot tersedia pada sesi terdekat'),
         findsOneWidget,
       );
-      await press(tester, find.text('Lihat Detail Dokter'));
+      await press(tester, find.text('Pilih Jadwal'));
       expect(find.text('Detail Dokter'), findsOneWidget);
       expect(find.text('Penyakit Dalam'), findsOneWidget);
       expect(find.text('4.9'), findsNothing);
@@ -235,11 +232,11 @@ void main() {
       final backend = PatientV2Backend()..walkOnly = true;
       await launch(tester, backend);
       await openPatientCatalog(tester);
-      await press(tester, find.text('Lihat Detail Dokter'));
-      expect(find.text('Lanjutkan Reservasi'), findsNothing);
+      await press(tester, find.text('Pilih Jadwal'));
+      expect(find.text('Konfirmasi Janji'), findsNothing);
       expect(find.text('Daftar antrean poliklinik'), findsOneWidget);
       await press(tester, find.byTooltip('Kembali'));
-      await press(tester, find.text('Reservasi walk-in'));
+      await press(tester, find.text('Reservasi Walk-in'));
       await press(tester, find.text('Lanjutkan'));
       expect(
         backend.requests
@@ -263,7 +260,7 @@ void main() {
     expect(
       tester
           .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+            find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
           )
           .onPressed,
       isNotNull,
@@ -315,8 +312,8 @@ void main() {
     });
     backend.tickets.add(backend.ticket);
     await launch(tester, backend);
-    await tester.ensureVisible(find.text('Kunjungan Terdekat'));
-    expect(find.text('Kunjungan Terdekat'), findsOneWidget);
+    await tester.ensureVisible(find.text('KUNJUNGAN TERDEKAT'));
+    expect(find.text('KUNJUNGAN TERDEKAT'), findsOneWidget);
     await press(tester, find.text('Lihat Detail'));
     expect(find.text('Detail Tiket'), findsOneWidget);
     await press(tester, find.text('Tutup'));

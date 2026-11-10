@@ -82,6 +82,7 @@ void main() {
       'registration',
       'a',
       'c',
+      'd', // Poli hibrida juga dapat dipilih untuk walk-in.
     ]);
     expect(rows, orderedEquals(before));
     expect(homeWalkInClinics(rows, [], 'apot').map((c) => c['id']), ['a', 'c']);
@@ -472,7 +473,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('Pendaftaran').first);
       await t.pumpAndSettle();
-      expect(find.text('Reservasi walk-in'), findsOneWidget);
+      expect(find.text('Reservasi Walk-in'), findsWidgets);
       expect(backend.requests.where((r) => r.$1 == 'POST'), isEmpty);
       await t.tap(find.widgetWithText(NavigationDestination, 'Beranda'));
       await t.pumpAndSettle();

@@ -114,7 +114,7 @@ void main() {
         (w.properties.label?.contains(patientDate(date)) ?? false),
   );
   Future<void> detail(WidgetTester tester) async {
-    await press(tester, find.text('Lihat Detail Dokter'));
+    await press(tester, find.text('Pilih Jadwal'));
   }
 
   Future<void> slot(WidgetTester tester) async {
@@ -154,12 +154,12 @@ void main() {
       expect(practiceDay(backend.today), findsOneWidget);
       expect(practiceDay(backend.tomorrow), findsOneWidget);
       expect(find.text('09:00 – 09:15'), findsOneWidget);
-      expect(find.text('Sisa slot 2'), findsOneWidget);
-      await press(tester, find.text('Sisa slot 2'));
+      expect(find.text('09:00'), findsOneWidget);
+      await press(tester, find.text('09:00'));
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+              find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
             )
             .onPressed,
         isNotNull,
@@ -183,7 +183,7 @@ void main() {
     await open(tester, DoctorBackend());
     await tester.enterText(find.byType(TextField).first, 'Dokter Umum');
     await tester.pumpAndSettle();
-    await press(tester, find.text('Lihat Detail Dokter'));
+    await press(tester, find.text('Pilih Jadwal'));
     expect(find.byType(DoctorProfileCard), findsOneWidget);
   });
 
@@ -193,7 +193,7 @@ void main() {
       final backend = DoctorBackend();
       await open(tester, backend);
       await slot(tester);
-      await press(tester, find.text('Sisa slot 2'));
+      await press(tester, find.text('09:00'));
       await tester.drag(find.byType(Scrollable).first, const Offset(0, 4000));
       await tester.pumpAndSettle();
       expect(practiceDay(backend.today), findsOneWidget);
@@ -207,7 +207,7 @@ void main() {
             .value,
         isNull,
       );
-      await press(tester, find.text('Lanjutkan Reservasi'));
+      await press(tester, find.text('Konfirmasi Janji'));
       expect(
         backend.requests.where((r) => r.$1 == 'POST' && r.$2 == '/janji-temu'),
         isEmpty,
@@ -301,7 +301,7 @@ void main() {
       final backend = DoctorBackend();
       await open(tester, backend);
       await slot(tester);
-      await press(tester, find.text('Sisa slot 2'));
+      await press(tester, find.text('09:00'));
       backend.slotsAvailable = false;
       for (final state in [
         AppLifecycleState.inactive,
@@ -318,7 +318,7 @@ void main() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+              find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
             )
             .onPressed,
         isNull,
@@ -333,8 +333,8 @@ void main() {
       final backend = DoctorBackend();
       await open(tester, backend);
       backend.scheduleGate = Completer<void>();
-      await tester.ensureVisible(find.text('Lihat Detail Dokter'));
-      await tester.tap(find.text('Lihat Detail Dokter'));
+      await tester.ensureVisible(find.text('Pilih Jadwal'));
+      await tester.tap(find.text('Pilih Jadwal'));
       await tester.pump();
       backend.emptyDoctors = true;
       for (final state in [
@@ -364,8 +364,8 @@ void main() {
       final backend = DoctorBackend()..conflict = true;
       await open(tester, backend);
       await slot(tester);
-      await press(tester, find.text('Sisa slot 2'));
-      await press(tester, find.text('Lanjutkan Reservasi'));
+      await press(tester, find.text('09:00'));
+      await press(tester, find.text('Konfirmasi Janji'));
       await press(tester, find.text('Konfirmasi Janji Temu').last);
       expect(
         backend.requests
@@ -386,7 +386,7 @@ void main() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+              find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
             )
             .onPressed,
         isNull,

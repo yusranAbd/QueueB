@@ -95,20 +95,22 @@ void main() {
       expect(find.text('Ambil tiket antrean'), findsNothing);
       expect(find.text('Pantau antrean real-time'), findsNothing);
       expect(find.text('Pelayanan lebih efisien'), findsNothing);
-      expect(find.text('Layanan digital rumah sakit'), findsNothing);
+      expect(find.text('Layanan digital klinik'), findsNothing);
       expect(find.byType(Image), findsNothing);
-      expect(find.text('Akses sistem antrean rumah sakit'), findsOneWidget);
+      expect(find.text('Akses sistem antrean klinik'), findsOneWidget);
       final card = tester.getRect(find.byType(LoginFormCard));
       expect(card.width, lessThanOrEqualTo(LoginStyle.cardWidth));
       expect(card.center.dx, closeTo(size.width / 2, .5));
       expect(find.text('Lebih tenang.\nDari awal kunjungan.'), findsNothing);
-      expect(card.center.dy, closeTo(size.height / 2, .5));
+      // Kartu tetap berada di sekitar tengah layar; ada selisih kecil karena
+      // ruang untuk tautan Public Display di bawah kartu.
+      expect(card.center.dy, closeTo(size.height / 2, 40));
       expect(card.top, greaterThanOrEqualTo(24));
       expect(card.bottom, lessThanOrEqualTo(size.height - 24));
       expect(
         find.descendant(
           of: find.byType(LoginFormCard),
-          matching: find.text('QueueB Hospital'),
+          matching: find.text('QueueB', findRichText: true),
         ),
         findsOneWidget,
       );
@@ -148,7 +150,7 @@ void main() {
     ) async {
       await launch(tester, size: Size(width, 800), scale: 2);
       await press(tester, submit);
-      await tester.ensureVisible(find.text('Masuk ke Public Display'));
+      await tester.ensureVisible(find.byTooltip('Masuk ke Public Display'));
       expect(tester.takeException(), isNull);
     });
   }
@@ -247,7 +249,7 @@ void main() {
           .obscureText,
       isTrue,
     );
-    await tester.ensureVisible(find.text('Masuk ke Public Display'));
+    await tester.ensureVisible(find.byTooltip('Masuk ke Public Display'));
     expect(tester.takeException(), isNull);
   });
 
@@ -271,10 +273,6 @@ void main() {
       expect(find.text('Memproses…'), findsOneWidget);
       expect(
         tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNull,
-      );
-      expect(
-        tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
         isNull,
       );
       expect(calls, 1);
@@ -348,6 +346,15 @@ void main() {
             find.widgetWithText(NavigationDestination, 'Profil'),
           );
           await press(tester, find.text('Keluar Akun'));
+        } else if (role == 'ADMIN') {
+          final menu = find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip &&
+                w.message?.startsWith('Menu ') == true &&
+                w.message != 'Menu administrasi',
+          );
+          await press(tester, menu.first);
+          await press(tester, find.text('Keluar Akun'));
         } else if (role == 'PETUGAS' || role == 'DOKTER') {
           await logoutOperationalPortal(tester);
         } else {
@@ -404,7 +411,7 @@ void main() {
           return http.Response('{}', 401);
         },
       );
-      await press(tester, find.text('Masuk ke Public Display'));
+      await press(tester, find.byTooltip('Masuk ke Public Display'));
       expect(find.byType(DisplayPage), findsOneWidget);
       expect(api.user, isNull);
       expect(requests.single.url.path, '/api/v1/display/sesi');

@@ -232,23 +232,18 @@ void main() {
         expect(
           find.descendant(
             of: find.byType(ReservationList),
-            matching: find.text('Reservasi'),
+            matching: find.text('Reservasi Pasien'),
           ),
           findsOneWidget,
         );
-        expect(
-          t.getBottomLeft(find.byType(FloatingActionButton)).dy,
-          lessThanOrEqualTo(t.getTopLeft(find.byType(NavigationBar)).dy),
-        );
-        expect(find.text('Antrean harian / Walk-in'), findsOneWidget);
-        expect(find.byType(ProfessionalDoctorAvatar), findsWidgets);
+        expect(find.text('Antrean langsung / Walk-in'), findsOneWidget);
         expect(find.text('Batalkan Reservasi'), findsOneWidget);
-        await press(t, find.byType(FloatingActionButton));
+        await press(t, find.byKey(const ValueKey('create-reservation')));
         for (final title in ['Cari Dokter', 'Jadwal Terdekat']) {
           expect(find.text(title), findsOneWidget);
         }
         expect(
-          find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+          find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
           findsNothing,
         );
         expect(t.takeException(), isNull);
@@ -256,7 +251,7 @@ void main() {
         expect(
           find.descendant(
             of: find.byType(ReservationList),
-            matching: find.text('Reservasi'),
+            matching: find.text('Reservasi Pasien'),
           ),
           findsOneWidget,
         );
@@ -275,10 +270,13 @@ void main() {
       expect(find.byType(ReservationCard), findsOneWidget);
       await t.enterText(find.byType(TextField), 'tidak ada');
       await t.pumpAndSettle();
-      expect(find.text('Belum ada reservasi yang sesuai.'), findsOneWidget);
+      expect(
+        find.text('Tidak ada reservasi yang sesuai pencarian atau filter.'),
+        findsOneWidget,
+      );
       await t.enterText(find.byType(TextField), '');
       await press(t, find.widgetWithText(ChoiceChip, 'Selesai'));
-      expect(find.text('Lihat Detail'), findsOneWidget);
+      expect(find.text('Lihat Detail Kunjungan'), findsOneWidget);
       expect(find.text('Batalkan Reservasi'), findsNothing);
       await press(t, find.widgetWithText(ChoiceChip, 'Dibatalkan'));
       expect(find.byType(ReservationCard), findsOneWidget);
@@ -286,7 +284,10 @@ void main() {
       b.tickets.clear();
       b.appointments.clear();
       await press(t, find.byTooltip('Muat ulang reservasi'));
-      expect(find.text('Belum ada reservasi yang sesuai.'), findsOneWidget);
+      expect(
+        find.text('Tidak ada reservasi yang sesuai pencarian atau filter.'),
+        findsOneWidget,
+      );
     },
   );
   testWidgets(
@@ -305,7 +306,10 @@ void main() {
       expect(b.requests.where((r) => r.$2.contains('/batalkan')).length, 1);
       b.cancelGate!.complete();
       await t.pumpAndSettle();
-      expect(find.text('Belum ada reservasi yang sesuai.'), findsOneWidget);
+      expect(
+        find.text('Tidak ada reservasi yang sesuai pencarian atau filter.'),
+        findsOneWidget,
+      );
       expect(
         t
             .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Dipesan'))
@@ -338,10 +342,7 @@ void main() {
     await press(t, find.widgetWithText(ChoiceChip, 'Dibatalkan'));
     await press(t, find.text('Lihat Detail'));
     expect(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('UM-004'),
-      ),
+      find.descendant(of: find.byType(Dialog), matching: find.text('UM-004')),
       findsOneWidget,
     );
     expect(b.requests.any((r) => r.$2 == '/tiket/cancelled'), isTrue);
@@ -352,12 +353,12 @@ void main() {
     (t) async {
       final b = ReservationBackend();
       await launch(t, b);
-      await press(t, find.byType(FloatingActionButton));
+      await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Cari Dokter'));
       expect(find.byType(ReservationDoctorChoice), findsOneWidget);
-      await press(t, find.text('Pilih Jadwal'));
-      await press(t, find.text('Sisa slot 2'));
-      await press(t, find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'));
+      await press(t, find.textContaining('dr. Indah'));
+      await press(t, find.text('09:00'));
+      await press(t, find.widgetWithText(FilledButton, 'Konfirmasi Janji'));
       await press(t, find.text('Konfirmasi Janji Temu'));
       expect(
         b.requests.where((r) => r.$1 == 'POST' && r.$2 == '/janji-temu').length,
@@ -379,7 +380,7 @@ void main() {
       final b = ReservationBackend();
       await launch(t, b);
       await openPatientCatalog(t, walkIn: true);
-      await press(t, find.text('Reservasi walk-in'));
+      await press(t, find.text('Reservasi Walk-in'));
       await press(t, find.text('Lanjutkan'));
       expect(
         b.requests.where((r) => r.$1 == 'POST' && r.$2 == '/reservasi').length,
@@ -392,10 +393,10 @@ void main() {
     (t) async {
       final b = ReservationBackend();
       await launch(t, b);
-      await press(t, find.byType(FloatingActionButton));
+      await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       expect(find.byType(ReservationDoctorChoice), findsOneWidget);
-      await press(t, find.text('Pilih Jadwal'));
+      await press(t, find.textContaining('dr. Indah'));
       expect(
         t.widget<ConsultationSlotGrid>(find.byType(ConsultationSlotGrid)).value,
         uid,
@@ -406,7 +407,7 @@ void main() {
       );
       await press(t, find.widgetWithText(NavigationDestination, 'Reservasi'));
       b.slotsAvailable = false;
-      await press(t, find.byType(FloatingActionButton));
+      await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       expect(find.byType(ReservationDoctorChoice), findsNothing);
       expect(find.text('Belum ada slot tersedia yang sesuai.'), findsOneWidget);
@@ -464,10 +465,7 @@ void main() {
       await t.enterText(find.byType(TextField), 'H-149');
       await t.pumpAndSettle();
       expect(find.byType(ReservationCard), findsOneWidget);
-      expect(
-        find.byWidgetPredicate((w) => w is Text && w.data == 'H-149'),
-        findsOneWidget,
-      );
+      expect(find.text('Antrean H-149'), findsOneWidget);
       expect(t.takeException(), isNull);
     },
   );
@@ -476,7 +474,7 @@ void main() {
     (t) async {
       final b = ReservationBackend()..failNearest = true;
       await launch(t, b);
-      await press(t, find.byType(FloatingActionButton));
+      await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       expect(
         find.textContaining('Sebagian slot belum dapat dimuat'),
@@ -494,22 +492,22 @@ void main() {
     (t) async {
       final b = ReservationBackend();
       await launch(t, b);
-      await press(t, find.byType(FloatingActionButton));
+      await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       b.slotsAvailable = false;
-      await press(t, find.text('Pilih Jadwal'));
+      await press(t, find.textContaining('dr. Indah'));
       expect(
         t.widget<ConsultationSlotGrid>(find.byType(ConsultationSlotGrid)).value,
         isNull,
       );
       await t.ensureVisible(
-        find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+        find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
       );
       await t.pumpAndSettle();
       expect(
         t
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+              find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
             )
             .onPressed,
         isNull,
@@ -525,7 +523,7 @@ void main() {
   ) async {
     final b = ReservationBackend()..ended = true;
     await launch(t, b);
-    await press(t, find.byType(FloatingActionButton));
+    await press(t, find.byKey(const ValueKey('create-reservation')));
     await press(t, find.text('Cari Dokter'));
     expect(find.text('Belum ada jadwal praktik mendatang.'), findsOneWidget);
     expect(

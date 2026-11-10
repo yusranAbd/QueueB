@@ -15,7 +15,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import type { JenisPerubahanAntrean } from '../src/realtime/realtime-events.types';
 import { RealtimeBroadcastService } from '../src/realtime/realtime-broadcast.service';
 import type { DisplaySnapshot } from '../src/display/display-snapshot.types';
-import type { DisplayReadyEvent, DisplayUpdatedEvent } from '../src/realtime/display-realtime.types';
+import type {
+  DisplayReadyEvent,
+  DisplayUpdatedEvent,
+} from '../src/realtime/display-realtime.types';
+
+// Tes memverifikasi kebijakan nama default (SAMAR), terlepas dari mode demo pada .env.
+process.env.DISPLAY_PATIENT_NAME_MODE = 'SAMAR';
+delete process.env.DISPLAY_FULL_NAMES_APPROVED;
 
 /** E2E ini hanya boleh berjalan pada database pengujian lokal. */
 describe('Public Display Socket.IO (e2e)', () => {
@@ -51,17 +58,26 @@ describe('Public Display Socket.IO (e2e)', () => {
       url.pathname !== '/capstone_antrean_test' ||
       !['localhost', '127.0.0.1'].includes(url.hostname) ||
       url.port !== '5433'
-    ) throw new Error('E2E Display wajib menggunakan capstone_antrean_test localhost:5433');
+    )
+      throw new Error(
+        'E2E Display wajib menggunakan capstone_antrean_test localhost:5433',
+      );
     if ((process.env.SERVICE_TIME_ZONE ?? 'Asia/Jakarta') !== 'Asia/Jakarta') {
       throw new Error('SERVICE_TIME_ZONE harus Asia/Jakarta');
     }
   }
   function tanggalLayanan(): Date {
     const bagian = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     }).formatToParts(new Date());
-    const ambil = (jenis: string): string => bagian.find((i) => i.type === jenis)?.value ?? '';
-    return new Date(`${ambil('year')}-${ambil('month')}-${ambil('day')}T00:00:00.000Z`);
+    const ambil = (jenis: string): string =>
+      bagian.find((i) => i.type === jenis)?.value ?? '';
+    return new Date(
+      `${ambil('year')}-${ambil('month')}-${ambil('day')}T00:00:00.000Z`,
+    );
   }
   function buatSocket(authToken = token, idLayanan = layananId): ClientSocket {
     const socket = io(`${asal()}/display`, {
@@ -77,7 +93,10 @@ describe('Public Display Socket.IO (e2e)', () => {
   }
   function tungguSiap(socket: ClientSocket): Promise<DisplayReadyEvent> {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout display:ready')), 6000);
+      const timeout = setTimeout(
+        () => reject(new Error('Timeout display:ready')),
+        6000,
+      );
       socket.once('display:ready', (data: DisplayReadyEvent) => {
         clearTimeout(timeout);
         resolve(data);
@@ -91,7 +110,10 @@ describe('Public Display Socket.IO (e2e)', () => {
   }
   function tungguEvent(socket: ClientSocket): Promise<DisplayUpdatedEvent> {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout display:updated')), 6000);
+      const timeout = setTimeout(
+        () => reject(new Error('Timeout display:updated')),
+        6000,
+      );
       socket.once('display:updated', (data: DisplayUpdatedEvent) => {
         clearTimeout(timeout);
         resolve(data);
@@ -101,8 +123,12 @@ describe('Public Display Socket.IO (e2e)', () => {
   async function kirim(aksi: JenisPerubahanAntrean, untukLayanan = layananId) {
     if (!app) throw new Error('Aplikasi belum berjalan');
     await app.get(RealtimeBroadcastService).kirim({
-      aksi, layananId: untukLayanan, tiketId,
-      nomorAntrean: 'D-025', status: 'DIPANGGIL', loketId,
+      aksi,
+      layananId: untukLayanan,
+      tiketId,
+      nomorAntrean: 'D-025',
+      status: 'DIPANGGIL',
+      loketId,
     });
   }
 
@@ -110,9 +136,16 @@ describe('Public Display Socket.IO (e2e)', () => {
     wajibDbTestingLokal();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ThrottlerStorage)
-      .useValue({ increment: () => Promise.resolve({
-        totalHits: 1, timeToExpire: 60000, isBlocked: false, timeToBlockExpire: 0,
-      }) }).compile();
+      .useValue({
+        increment: () =>
+          Promise.resolve({
+            totalHits: 1,
+            timeToExpire: 60000,
+            isBlocked: false,
+            timeToBlockExpire: 0,
+          }),
+      })
+      .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
     await app.listen(0, '127.0.0.1');
@@ -121,53 +154,99 @@ describe('Public Display Socket.IO (e2e)', () => {
       SELECT current_database() AS "nama"`;
     expect(hasil[0]?.nama).toBe('capstone_antrean_test');
 
-    const pengguna = await db().pengguna.create({ data: {
-      nama: 'Pemilik tiket uji display', email: `dreal-${randomUUID()}@test.local`,
-      kataSandiHash: 'fixture', peran: 'USER',
-    } });
+    const pengguna = await db().pengguna.create({
+      data: {
+        nama: 'Pemilik tiket uji display',
+        email: `dreal-${randomUUID()}@test.local`,
+        kataSandiHash: 'fixture',
+        peran: 'USER',
+      },
+    });
     penggunaId = pengguna.id;
-    const layanan = await db().layanan.create({ data: {
-      kode: `DR${unik}`, nama: 'Layanan Realtime Display',
-      prefixAntrean: 'D', durasiDasarMenit: 10, aktif: true,
-    } });
+    const layanan = await db().layanan.create({
+      data: {
+        kode: `DR${unik}`,
+        nama: 'Layanan Realtime Display',
+        prefixAntrean: 'D',
+        durasiDasarMenit: 10,
+        aktif: true,
+      },
+    });
     layananId = layanan.id;
-    const loket = await db().loket.create({ data: {
-      layananId, kode: '03', nama: 'Loket 03', aktif: true,
-    } });
+    const loket = await db().loket.create({
+      data: {
+        layananId,
+        kode: '03',
+        nama: 'Loket 03',
+        aktif: true,
+      },
+    });
     loketId = loket.id;
-    const perangkat = await db().perangkatTampilan.create({ data: {
-      layananId, nama: 'Display Realtime E2E', aktif: true, tokenHash,
-    } });
+    const perangkat = await db().perangkatTampilan.create({
+      data: {
+        layananId,
+        nama: 'Display Realtime E2E',
+        aktif: true,
+        tokenHash,
+      },
+    });
     perangkatId = perangkat.id;
-    const tiket = await db().tiketAntrean.create({ data: {
-      penggunaId, layananId, loketId, tanggalAntrean: tanggalLayanan(),
-      nomorUrut: 25, kodeTiket: `TR${randomBytes(12).toString('hex').toUpperCase()}`,
-      status: StatusTiket.DIPANGGIL, urutanMasukAntrean: 1,
-      checkInPada: new Date(), masukAntreanPada: new Date(), dipanggilPada: new Date(),
-    } });
+    const tiket = await db().tiketAntrean.create({
+      data: {
+        penggunaId,
+        layananId,
+        loketId,
+        tanggalAntrean: tanggalLayanan(),
+        nomorUrut: 25,
+        kodeTiket: `TR${randomBytes(12).toString('hex').toUpperCase()}`,
+        status: StatusTiket.DIPANGGIL,
+        urutanMasukAntrean: 1,
+        checkInPada: new Date(),
+        masukAntreanPada: new Date(),
+        dipanggilPada: new Date(),
+      },
+    });
     tiketId = tiket.id;
-    await db().peristiwaAntrean.create({ data: {
-      tiketAntreanId: tiketId, tipe: 'CALL',
-      statusSebelum: StatusTiket.MENUNGGU, statusSesudah: StatusTiket.DIPANGGIL,
-    } });
+    await db().peristiwaAntrean.create({
+      data: {
+        tiketAntreanId: tiketId,
+        tipe: 'CALL',
+        statusSebelum: StatusTiket.MENUNGGU,
+        statusSesudah: StatusTiket.DIPANGGIL,
+      },
+    });
   }, 120000);
 
   afterEach(async () => {
     for (const socket of sockets.splice(0)) socket.disconnect();
-    if (prisma && perangkatId) await db().perangkatTampilan.update({
-      where: { id: perangkatId }, data: { aktif: true, tokenHash },
-    });
+    if (prisma && perangkatId)
+      await db().perangkatTampilan.update({
+        where: { id: perangkatId },
+        data: { aktif: true, tokenHash },
+      });
   });
 
   afterAll(async () => {
     try {
       if (prisma) {
-        if (tiketId) await db().peristiwaAntrean.deleteMany({ where: { tiketAntreanId: tiketId } });
-        if (tiketId) await db().tiketAntrean.deleteMany({ where: { id: tiketId } });
-        if (perangkatId) await db().perangkatTampilan.deleteMany({ where: { id: perangkatId } });
+        if (tiketId)
+          await db().peristiwaAntrean.deleteMany({
+            where: { tiketAntreanId: tiketId },
+          });
+        if (tiketId)
+          await db().tiketAntrean.deleteMany({ where: { id: tiketId } });
+        if (perangkatId)
+          await db().perangkatTampilan.deleteMany({
+            where: { id: perangkatId },
+          });
         if (loketId) await db().loket.deleteMany({ where: { id: loketId } });
-        if (layananId) await db().layanan.deleteMany({ where: { id: layananId } });
-        if (penggunaId) await db().pengguna.deleteMany({ where: { id: penggunaId } });
+        if (layananId)
+          await db().layanan.deleteMany({ where: { id: layananId } });
+        if (penggunaId)
+          await db().notifikasi.deleteMany({
+            where: { penggunaId: penggunaId },
+          });
+        await db().pengguna.deleteMany({ where: { id: penggunaId } });
       }
     } finally {
       if (app) await app.close();
@@ -180,7 +259,11 @@ describe('Public Display Socket.IO (e2e)', () => {
     const terima = tungguEvent(socket);
     await kirim('CALL');
     const pesan = await terima;
-    expect(pesan).toMatchObject({ aksi: 'CALL', layananId, perluPeriksaPengumuman: true });
+    expect(pesan).toMatchObject({
+      aksi: 'CALL',
+      layananId,
+      perluPeriksaPengumuman: true,
+    });
     const serial = JSON.stringify(pesan);
     expect(serial).not.toContain(tiketId);
     expect(serial).not.toContain('D-025');
@@ -190,7 +273,10 @@ describe('Public Display Socket.IO (e2e)', () => {
       .set('x-display-token', token)
       .expect(200);
     const snapshot = response.body as DisplaySnapshot;
-    expect(snapshot.pengumumanTerakhir).toMatchObject({ aksi: 'CALL', bahasa: 'id-ID' });
+    expect(snapshot.pengumumanTerakhir).toMatchObject({
+      aksi: 'CALL',
+      bahasa: 'id-ID',
+    });
   });
 
   it('menolak koneksi dengan token salah atau layanan berbeda', async () => {
@@ -200,7 +286,10 @@ describe('Public Display Socket.IO (e2e)', () => {
     ]) {
       const socket = buatSocket(kunci, layanan);
       const pesan = await new Promise<string>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout connect_error')), 6000);
+        const timeout = setTimeout(
+          () => reject(new Error('Timeout connect_error')),
+          6000,
+        );
         socket.once('connect_error', (error: Error) => {
           clearTimeout(timeout);
           resolve(error.message);
@@ -225,10 +314,19 @@ describe('Public Display Socket.IO (e2e)', () => {
   it('pencabutan perangkat memutus socket dan menahan event', async () => {
     const socket = buatSocket();
     await tungguSiap(socket);
-    await db().perangkatTampilan.update({ where: { id: perangkatId }, data: { aktif: false } });
+    await db().perangkatTampilan.update({
+      where: { id: perangkatId },
+      data: { aktif: false },
+    });
     const disconnect = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout disconnect')), 6000);
-      socket.once('disconnect', () => { clearTimeout(timeout); resolve(); });
+      const timeout = setTimeout(
+        () => reject(new Error('Timeout disconnect')),
+        6000,
+      );
+      socket.once('disconnect', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
     });
     const menerima = jest.fn();
     socket.on('display:updated', menerima);
@@ -241,11 +339,18 @@ describe('Public Display Socket.IO (e2e)', () => {
     const socket = buatSocket();
     await tungguSiap(socket);
     await db().perangkatTampilan.update({
-      where: { id: perangkatId }, data: { tokenHash: 'f'.repeat(64) },
+      where: { id: perangkatId },
+      data: { tokenHash: 'f'.repeat(64) },
     });
     const disconnect = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout rotasi')), 6000);
-      socket.once('disconnect', () => { clearTimeout(timeout); resolve(); });
+      const timeout = setTimeout(
+        () => reject(new Error('Timeout rotasi')),
+        6000,
+      );
+      socket.once('disconnect', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
     });
     await kirim('RECALL');
     await disconnect;
@@ -254,34 +359,52 @@ describe('Public Display Socket.IO (e2e)', () => {
     let socket = buatSocket();
     await tungguSiap(socket);
     const cases: Array<[JenisPerubahanAntrean, StatusTiket, number]> = [
-      ['REQUEUE', StatusTiket.MENUNGGU, 1], ['CALL', StatusTiket.DIPANGGIL, 0],
-      ['RECALL', StatusTiket.DIPANGGIL, 0], ['SKIP', StatusTiket.DILEWATI, 0],
-      ['REQUEUE', StatusTiket.MENUNGGU, 1], ['CALL', StatusTiket.DIPANGGIL, 0],
-      ['START', StatusTiket.DILAYANI, 0], ['COMPLETE', StatusTiket.SELESAI, 0],
+      ['REQUEUE', StatusTiket.MENUNGGU, 1],
+      ['CALL', StatusTiket.DIPANGGIL, 0],
+      ['RECALL', StatusTiket.DIPANGGIL, 0],
+      ['SKIP', StatusTiket.DILEWATI, 0],
+      ['REQUEUE', StatusTiket.MENUNGGU, 1],
+      ['CALL', StatusTiket.DIPANGGIL, 0],
+      ['START', StatusTiket.DILAYANI, 0],
+      ['COMPLETE', StatusTiket.SELESAI, 0],
     ];
     for (const [aksi, status, total] of cases) {
       // Fixture status is committed before invalidation, as in QueueService.
-      await db().tiketAntrean.update({ where: { id: tiketId }, data: { status } });
+      await db().tiketAntrean.update({
+        where: { id: tiketId },
+        data: { status },
+      });
       const event = tungguEvent(socket);
       await kirim(aksi);
       const signal = await event;
-      expect(signal.perluPeriksaPengumuman).toBe(aksi === 'CALL' || aksi === 'RECALL');
+      expect(signal.perluPeriksaPengumuman).toBe(
+        aksi === 'CALL' || aksi === 'RECALL',
+      );
       expect(JSON.stringify(signal)).not.toContain('Pemilik');
-      const snapshot = (await request(server()).get(`/api/v1/display/${layananId}/snapshot`)
-        .set('x-display-token', token).expect(200)).body as DisplaySnapshot;
+      const snapshot = (
+        await request(server())
+          .get(`/api/v1/display/${layananId}/snapshot`)
+          .set('x-display-token', token)
+          .expect(200)
+      ).body as DisplaySnapshot;
       expect(snapshot.totalMenunggu).toBe(total);
       expect(snapshot.menunggu).toHaveLength(total);
-      const hasPatientRow = status === StatusTiket.MENUNGGU || status === StatusTiket.DILEWATI;
+      const hasPatientRow =
+        status === StatusTiket.MENUNGGU || status === StatusTiket.DILEWATI;
       expect(snapshot.antrianPasien).toHaveLength(hasPatientRow ? 1 : 0);
       expect(snapshot.totalAntrianPasien).toBe(hasPatientRow ? 1 : 0);
-      expect(snapshot.totalDilewati).toBe(status === StatusTiket.DILEWATI ? 1 : 0);
-      if (hasPatientRow) expect(snapshot.antrianPasien?.[0].status).toBe(status);
-      if (total) expect(snapshot.menunggu?.[0].namaPasien).toBe('Pemilik t. u. d.');
-      if (status !== StatusTiket.DIPANGGIL) expect(snapshot.pengumumanTerakhir).toBeNull();
+      expect(snapshot.totalDilewati).toBe(
+        status === StatusTiket.DILEWATI ? 1 : 0,
+      );
+      if (hasPatientRow)
+        expect(snapshot.antrianPasien?.[0].status).toBe(status);
+      if (total)
+        expect(snapshot.menunggu?.[0].namaPasien).toBe('Pemilik t. u. d.');
+      if (status !== StatusTiket.DIPANGGIL)
+        expect(snapshot.pengumumanTerakhir).toBeNull();
     }
     socket.disconnect();
     socket = buatSocket();
     expect(await tungguSiap(socket)).toMatchObject({ layananId });
   });
-
 });

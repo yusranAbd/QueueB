@@ -28,6 +28,13 @@ const buatPrismaMock = () => ({
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  jadwalPraktik: {
+    count: jest.fn().mockResolvedValue(0),
+  },
+  janjiTemu: {
+    count: jest.fn().mockResolvedValue(0),
+  },
+  $transaction: jest.fn(),
 });
 
 describe('DokterService (H2.1)', () => {
@@ -36,6 +43,10 @@ describe('DokterService (H2.1)', () => {
 
   beforeEach(() => {
     prisma = buatPrismaMock();
+    // Transaksi Serializable dijalankan terhadap mock yang sama.
+    prisma.$transaction.mockImplementation(
+      (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma),
+    );
     service = new DokterService(prisma as unknown as PrismaService);
   });
 
@@ -92,9 +103,9 @@ describe('DokterService (H2.1)', () => {
 
   it('detail yang tidak terlihat bagi USER dikembalikan sebagai 404', async () => {
     prisma.dokter.findFirst.mockResolvedValue(null);
-    await expect(service.findOne(dokterId, PeranPengguna.USER)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findOne(dokterId, PeranPengguna.USER),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('memperbarui nama dan spesialisasi dokter', async () => {
@@ -127,9 +138,9 @@ describe('DokterService (H2.1)', () => {
 
   it('tidak bisa mengubah dokter yang tidak ada', async () => {
     prisma.dokter.findUnique.mockResolvedValue(null);
-    await expect(service.update(dokterId, { aktif: false })).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.update(dokterId, { aktif: false }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('menghubungkan dokter aktif ke layanan aktif lewat upsert', async () => {
@@ -159,7 +170,10 @@ describe('DokterService (H2.1)', () => {
 
   it('menolak relasi jika layanan tidak aktif', async () => {
     prisma.dokter.findUnique.mockResolvedValue({ id: dokterId, aktif: true });
-    prisma.layanan.findUnique.mockResolvedValue({ id: layananId, aktif: false });
+    prisma.layanan.findUnique.mockResolvedValue({
+      id: layananId,
+      aktif: false,
+    });
     await expect(
       service.hubungkanLayanan(dokterId, { layananId }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
@@ -168,8 +182,14 @@ describe('DokterService (H2.1)', () => {
 
   it('nonaktifkan relasi tanpa menghapus data', async () => {
     prisma.dokter.findUnique.mockResolvedValue({ id: dokterId });
-    prisma.dokterLayanan.findUnique.mockResolvedValue({ id: relasiId });
-    prisma.dokterLayanan.update.mockResolvedValue({ id: relasiId, aktif: false });
+    prisma.dokterLayanan.findUnique.mockResolvedValue({
+      id: relasiId,
+      aktif: true,
+    });
+    prisma.dokterLayanan.update.mockResolvedValue({
+      id: relasiId,
+      aktif: false,
+    });
     await service.nonaktifkanLayanan(dokterId, layananId);
     expect(prisma.dokterLayanan.update).toHaveBeenCalledWith({
       where: { id: relasiId },

@@ -112,9 +112,11 @@ void main() {
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
           expect(find.textContaining('09:00 – 09:30'), findsOneWidget);
-          await t.ensureVisible(find.text('Lihat Detail'));
+          // Seluruh kartu kunjungan terdekat dapat disentuh untuk membuka detail.
+          final visit = find.byKey(const ValueKey('patient-nearest-visit'));
+          await t.ensureVisible(visit);
           await t.pumpAndSettle();
-          await t.tap(find.text('Lihat Detail'));
+          await t.tap(visit);
           await t.pumpAndSettle();
           expect(calls, 1);
           expect(requests, 0);
@@ -265,38 +267,38 @@ void main() {
 
   for (final width in [320.0, 360.0, 390.0, 430.0, 768.0, 1366.0]) {
     for (final scale in [1.0, 1.3, 1.5, 2.0]) {
-      testWidgets(
-        'paper ticket remains readable at width=$width scale=$scale',
-        (t) async {
-          t.view.physicalSize = Size(width, 1000);
-          t.view.devicePixelRatio = 1;
-          addTearDown(t.view.resetPhysicalSize);
-          addTearDown(t.view.resetDevicePixelRatio);
-          await t.pumpWidget(
-            scene(
-              t,
-              scale: scale,
-              clinic: {
-                ..._service,
-                'nama': 'Kasir / Pembayaran dan Administrasi Pelayanan',
-              },
-              ticket: const {'nomorAntrean': 'PENDAFTARAN-2026-000123'},
-              queue: queue(42, 'PENDAFTARAN-2026-000121'),
-            ),
-          );
-          await t.pumpAndSettle();
-          expect(t.takeException(), isNull);
-          expect(find.text('PENDAFTARAN-2026-000123'), findsOneWidget);
-          expect(find.text('PENDAFTARAN-2026-000121'), findsOneWidget);
-          expect(find.text('42'), findsOneWidget);
-          expect(find.text('Ambil Nomor Antrean'), findsNothing);
-          expect(find.byType(IconButton), findsNothing);
-          expect(
-            t.getRect(find.byType(PatientServiceTicketV8)).width,
-            lessThanOrEqualTo(648),
-          );
-        },
-      );
+      testWidgets('paper ticket remains readable at width=$width scale=$scale', (
+        t,
+      ) async {
+        t.view.physicalSize = Size(width, 1000);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        await t.pumpWidget(
+          scene(
+            t,
+            scale: scale,
+            clinic: {
+              ..._service,
+              'nama': 'Kasir / Pembayaran dan Administrasi Pelayanan',
+            },
+            ticket: const {'nomorAntrean': 'PENDAFTARAN-2026-000123'},
+            queue: queue(42, 'PENDAFTARAN-2026-000121'),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull);
+        expect(find.text('PENDAFTARAN-2026-000123'), findsOneWidget);
+        expect(find.text('PENDAFTARAN-2026-000121'), findsOneWidget);
+        // Kartu menampilkan jumlah pasien menunggu (field ke-5 ringkasan = 2).
+        expect(find.text('2'), findsOneWidget);
+        expect(find.text('Ambil Nomor Antrean'), findsNothing);
+        expect(find.byType(IconButton), findsNothing);
+        expect(
+          t.getRect(find.byType(PatientServiceTicketV8)).width,
+          lessThanOrEqualTo(648),
+        );
+      });
     }
   }
 
@@ -350,7 +352,7 @@ void main() {
         expect(
           find.bySemanticsLabel(
             RegExp(
-              'Nomor Antreanmu PEN-012.*Sedang dilayani: PEN-010.*Total check-in hari ini 42',
+              'Nomor antreanmu PEN-012.*Sedang dilayani: PEN-010.*2 menunggu',
             ),
           ),
           findsOneWidget,
@@ -436,13 +438,8 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      expect(find.text('Selamat pagi,'), findsOneWidget);
-      expect(find.text('Pasien Sesi Baru'), findsOneWidget);
-      expect(
-        find.text('Cari layanan, poli, atau informasi...'),
-        findsOneWidget,
-      );
-      expect(find.byType(Image), findsOneWidget);
+      // Beranda memakai kolom pencarian; sapaan nama berada pada app bar.
+      expect(find.text('Cari layanan, poli, atau dokter...'), findsOneWidget);
       expect(
         homeServiceTicket(
           [

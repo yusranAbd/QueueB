@@ -476,6 +476,13 @@ describe('QR Check-In API (e2e)', () => {
             },
           });
 
+          await prisma.notifikasi.deleteMany({
+            where: {
+              penggunaId: {
+                in: penggunaIds,
+              },
+            },
+          });
           await prisma.pengguna.deleteMany({
             where: {
               id: {
@@ -1736,14 +1743,20 @@ describe('QR Check-In API (e2e)', () => {
         !['localhost', '127.0.0.1'].includes(url.hostname) ||
         url.port !== '5433'
       ) {
-        throw new Error('Rollback CALL wajib menggunakan PostgreSQL testing lokal');
+        throw new Error(
+          'Rollback CALL wajib menggunakan PostgreSQL testing lokal',
+        );
       }
       const database = await db().$queryRaw<
         Array<{ namaDatabase: string }>
       >`SELECT current_database() AS "namaDatabase"`;
       expect(database[0]?.namaDatabase).toBe('capstone_antrean_test');
 
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tiketId)) {
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          tiketId,
+        )
+      ) {
         throw new Error('ID tiket E2E bukan UUID yang valid');
       }
 
@@ -1752,9 +1765,11 @@ describe('QR Check-In API (e2e)', () => {
       });
       expect(sebelum.status).toBe(StatusTiket.MENUNGGU);
       expect(sebelum.dipanggilPada).toBeNull();
-      expect(await db().peristiwaAntrean.count({
-        where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-      })).toBe(0);
+      expect(
+        await db().peristiwaAntrean.count({
+          where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+        }),
+      ).toBe(0);
 
       // Constraint unik, hanya menolak audit CALL untuk tiket fixture ini.
       const namaConstraint = `e2e_call_rollback_${randomBytes(6).toString('hex')}`;
@@ -1792,15 +1807,19 @@ describe('QR Check-In API (e2e)', () => {
       expect(sesudah.masukAntreanPada).toEqual(sebelum.masukAntreanPada);
       expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
       expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-      expect(await db().peristiwaAntrean.count({
-        where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-      })).toBe(0);
+      expect(
+        await db().peristiwaAntrean.count({
+          where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+        }),
+      ).toBe(0);
 
       // Antrean tidak hilang akibat percobaan CALL gagal.
       const antrean = await daftarMenunggu().expect(200);
-      expect(antrean.body).toEqual(expect.arrayContaining([
-        expect.objectContaining({ tiketId, status: StatusTiket.MENUNGGU }),
-      ]));
+      expect(antrean.body).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ tiketId, status: StatusTiket.MENUNGGU }),
+        ]),
+      );
     }, 30000);
 
     // ========================================
@@ -1949,16 +1968,12 @@ describe('QR Check-In API (e2e)', () => {
 
         expect(
           [hasilA.tiketId, hasilB.tiketId].sort((a, b) => a.localeCompare(b)),
-        ).toEqual(
-          [tiketId, tiketKedua.id].sort((a, b) => a.localeCompare(b)),
-        );
-        expect([
-          hasilA.urutanMasukAntrean,
-          hasilB.urutanMasukAntrean,
-        ].sort((a, b) => a - b)).toEqual([
-          urutanPertama,
-          tiketKedua.urutanMasukAntrean,
-        ]);
+        ).toEqual([tiketId, tiketKedua.id].sort((a, b) => a.localeCompare(b)));
+        expect(
+          [hasilA.urutanMasukAntrean, hasilB.urutanMasukAntrean].sort(
+            (a, b) => a - b,
+          ),
+        ).toEqual([urutanPertama, tiketKedua.urutanMasukAntrean]);
 
         // Kedua tiket sudah keluar dari daftar MENUNGGU.
         const daftarTersisa = await daftarMenunggu().expect(200);
@@ -1987,9 +2002,7 @@ describe('QR Check-In API (e2e)', () => {
           tiketDatabase
             .map((item) => item.loketId ?? '')
             .sort((a, b) => a.localeCompare(b)),
-        ).toEqual(
-          [loketId, idLoketB].sort((a, b) => a.localeCompare(b)),
-        );
+        ).toEqual([loketId, idLoketB].sort((a, b) => a.localeCompare(b)));
 
         const audit = await db().peristiwaAntrean.findMany({
           where: {
@@ -2003,9 +2016,7 @@ describe('QR Check-In API (e2e)', () => {
           audit
             .map((item) => item.tiketAntreanId)
             .sort((a, b) => a.localeCompare(b)),
-        ).toEqual(
-          [tiketId, tiketKedua.id].sort((a, b) => a.localeCompare(b)),
-        );
+        ).toEqual([tiketId, tiketKedua.id].sort((a, b) => a.localeCompare(b)));
         expect(audit).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -2042,9 +2053,7 @@ describe('QR Check-In API (e2e)', () => {
 
         const kodeStatus = [responsA.status, responsB.status];
         expect(kodeStatus.filter((status) => status === 200)).toHaveLength(1);
-        expect(
-          kodeStatus.filter((status) => status !== 200),
-        ).toHaveLength(1);
+        expect(kodeStatus.filter((status) => status !== 200)).toHaveLength(1);
         expect([404, 409]).toContain(
           kodeStatus.find((status) => status !== 200),
         );
@@ -2160,12 +2169,16 @@ describe('QR Check-In API (e2e)', () => {
         expect(sesudah.status).toBe(StatusTiket.DIPANGGIL);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.dipanggilPada).toEqual(sebelum.dipanggilPada);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'RECALL' },
-        })).toBe(2);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-        })).toBe(1);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'RECALL' },
+          }),
+        ).toBe(2);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('menolak RECALL oleh akun USER', async () => {
@@ -2271,9 +2284,11 @@ describe('QR Check-In API (e2e)', () => {
         await siapkanTiketCheckIn();
         await masukAntrean().expect(200);
         await lewatiAntrean().expect(409);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('menolak SKIP dari loket yang berbeda', async () => {
@@ -2319,9 +2334,11 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(sesudah.status).toBe(StatusTiket.DILEWATI);
         expect(sesudah.versi).toBe(sebelum.versi + 1);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
-        })).toBe(1);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('dua SKIP bersamaan hanya menghasilkan satu perubahan dan audit', async () => {
@@ -2364,13 +2381,19 @@ describe('QR Check-In API (e2e)', () => {
           !['localhost', '127.0.0.1'].includes(url.hostname) ||
           url.port !== '5433'
         ) {
-          throw new Error('Rollback SKIP hanya boleh menggunakan database testing lokal');
+          throw new Error(
+            'Rollback SKIP hanya boleh menggunakan database testing lokal',
+          );
         }
         const database = await db().$queryRaw<
           Array<{ namaDatabase: string }>
         >`SELECT current_database() AS "namaDatabase"`;
         expect(database[0]?.namaDatabase).toBe('capstone_antrean_test');
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tiketId)) {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            tiketId,
+          )
+        ) {
           throw new Error('UUID tiket E2E tidak valid');
         }
 
@@ -2412,9 +2435,11 @@ describe('QR Check-In API (e2e)', () => {
         expect(sesudah.urutanMasukAntrean).toBe(sebelum.urutanMasukAntrean);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'SKIP' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('loket dapat CALL tiket berikutnya setelah SKIP', async () => {
@@ -2468,7 +2493,6 @@ describe('QR Check-In API (e2e)', () => {
       }, 30000);
     });
 
-
     // ========================================
     // 01G-D.3-D — REQUEUE (E2E)
     // ========================================
@@ -2518,12 +2542,17 @@ describe('QR Check-In API (e2e)', () => {
           });
           tiketKeduaId = tiketKedua.id;
           const responsMasuk = await masukAntrean(tiketKeduaId).expect(200);
-          const urutanKedua = (responsMasuk.body as { urutanMasukAntrean: number }).urutanMasukAntrean;
+          const urutanKedua = (
+            responsMasuk.body as { urutanMasukAntrean: number }
+          ).urutanMasukAntrean;
 
-          const sebelum = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
-          const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow({
-            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          const sebelum = await db().tiketAntrean.findUniqueOrThrow({
+            where: { id: tiketId },
           });
+          const counterSebelum =
+            await db().urutanAntreanHarian.findUniqueOrThrow({
+              where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+            });
           expect(sebelum.status).toBe(StatusTiket.DILEWATI);
 
           const response = await antreUlang().expect(200);
@@ -2540,23 +2569,34 @@ describe('QR Check-In API (e2e)', () => {
           expect(hasil.status).toBe(StatusTiket.MENUNGGU);
           expect(hasil.loketId).toBeNull();
           expect(hasil.urutanMasukSebelumnya).toBe(sebelum.urutanMasukAntrean);
-          expect(hasil.urutanMasukAntrean).toBe(counterSebelum.urutanMasukTerakhir + 1);
+          expect(hasil.urutanMasukAntrean).toBe(
+            counterSebelum.urutanMasukTerakhir + 1,
+          );
           expect(hasil.urutanMasukAntrean).toBeGreaterThan(urutanKedua);
           expect(hasil.versi).toBe(sebelum.versi + 1);
-          expect(hasil.nomorAntrean).toBe(`Q-${String(nomorUrut).padStart(3, '0')}`);
+          expect(hasil.nomorAntrean).toBe(
+            `Q-${String(nomorUrut).padStart(3, '0')}`,
+          );
 
-          const sesudah = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+          const sesudah = await db().tiketAntrean.findUniqueOrThrow({
+            where: { id: tiketId },
+          });
           expect(sesudah.status).toBe(StatusTiket.MENUNGGU);
           expect(sesudah.loketId).toBeNull();
           expect(sesudah.dipanggilPada).toBeNull();
-          expect(sesudah.masukAntreanPada).not.toEqual(sebelum.masukAntreanPada);
+          expect(sesudah.masukAntreanPada).not.toEqual(
+            sebelum.masukAntreanPada,
+          );
           expect(sesudah.urutanMasukAntrean).toBe(hasil.urutanMasukAntrean);
           expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
           expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
 
           const daftar = await daftarMenunggu().expect(200);
           const hasilDaftar = daftar.body as Array<{ tiketId: string }>;
-          expect(hasilDaftar.map((item) => item.tiketId)).toEqual([tiketKeduaId, tiketId]);
+          expect(hasilDaftar.map((item) => item.tiketId)).toEqual([
+            tiketKeduaId,
+            tiketId,
+          ]);
 
           const audit = await db().peristiwaAntrean.findMany({
             where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
@@ -2575,10 +2615,14 @@ describe('QR Check-In API (e2e)', () => {
 
           // CALL berikutnya tetap mendahulukan tiket kedua.
           const dipanggil = await panggilAntrean().expect(200);
-          expect((dipanggil.body as { tiketId: string }).tiketId).toBe(tiketKeduaId);
+          expect((dipanggil.body as { tiketId: string }).tiketId).toBe(
+            tiketKeduaId,
+          );
         } finally {
           if (tiketKeduaId) {
-            await db().peristiwaAntrean.deleteMany({ where: { tiketAntreanId: tiketKeduaId } });
+            await db().peristiwaAntrean.deleteMany({
+              where: { tiketAntreanId: tiketKeduaId },
+            });
             await db().tiketAntrean.deleteMany({ where: { id: tiketKeduaId } });
           }
         }
@@ -2596,71 +2640,102 @@ describe('QR Check-In API (e2e)', () => {
         await siapkanTiketCheckIn();
         await masukAntrean().expect(200);
         await antreUlang().expect(409);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('menolak REQUEUE untuk loket yang tidak sesuai', async () => {
         await siapkanTiketDilewati();
         await antreUlang(petugasA.token, tiketId, randomUUID()).expect(403);
-        const tiket = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+        const tiket = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
+        });
         expect(tiket.status).toBe(StatusTiket.DILEWATI);
       }, 30000);
 
       it('menolak REQUEUE jika penugasan PETUGAS tidak aktif', async () => {
         await siapkanTiketDilewati();
         const where = { petugasId: petugasA.id, loketId };
-        await db().penugasanPetugas.updateMany({ where, data: { aktif: false } });
+        await db().penugasanPetugas.updateMany({
+          where,
+          data: { aktif: false },
+        });
         try {
           await antreUlang().expect(403);
         } finally {
-          await db().penugasanPetugas.updateMany({ where, data: { aktif: true } });
+          await db().penugasanPetugas.updateMany({
+            where,
+            data: { aktif: true },
+          });
         }
-        const tiket = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+        const tiket = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
+        });
         expect(tiket.status).toBe(StatusTiket.DILEWATI);
       }, 30000);
 
       it('REQUEUE kedua ditolak tanpa menaikkan counter atau menduplikasi audit', async () => {
         await siapkanTiketDilewati();
         await antreUlang().expect(200);
-        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
-        });
+        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
         await antreUlang().expect(409);
-        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
-        });
-        expect(counterSesudah.urutanMasukTerakhir).toBe(counterSebelum.urutanMasukTerakhir);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
-        })).toBe(1);
+        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
+        expect(counterSesudah.urutanMasukTerakhir).toBe(
+          counterSebelum.urutanMasukTerakhir,
+        );
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('dua REQUEUE bersamaan hanya boleh mengubah antrean satu kali', async () => {
         await siapkanTiketDilewati();
-        const sebelum = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
-        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+        const sebelum = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
         });
+        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
         const [responsA, responsB] = await Promise.all([
           antreUlang(petugasA.token),
           antreUlang(petugasB.token),
         ]);
         const hasil = [responsA.status, responsB.status].sort((a, b) => a - b);
         expect(hasil).toEqual([200, 409]);
-        const sesudah = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
-        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+        const sesudah = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
         });
+        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
         expect(sesudah.status).toBe(StatusTiket.MENUNGGU);
         expect(sesudah.versi).toBe(sebelum.versi + 1);
-        expect(counterSesudah.urutanMasukTerakhir).toBe(counterSebelum.urutanMasukTerakhir + 1);
+        expect(counterSesudah.urutanMasukTerakhir).toBe(
+          counterSebelum.urutanMasukTerakhir + 1,
+        );
         const audit = await db().peristiwaAntrean.findMany({
           where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
         });
         expect(audit).toHaveLength(1);
-        const petugasBerhasil = responsA.status === 200 ? petugasA.id : petugasB.id;
+        const petugasBerhasil =
+          responsA.status === 200 ? petugasA.id : petugasB.id;
         expect(audit[0].aktorId).toBe(petugasBerhasil);
       }, 30000);
 
@@ -2673,18 +2748,29 @@ describe('QR Check-In API (e2e)', () => {
           url.pathname !== '/capstone_antrean_test' ||
           !['localhost', '127.0.0.1'].includes(url.hostname) ||
           url.port !== '5433'
-        ) throw new Error('Rollback hanya boleh berjalan pada PostgreSQL testing lokal');
+        )
+          throw new Error(
+            'Rollback hanya boleh berjalan pada PostgreSQL testing lokal',
+          );
         const database = await db().$queryRaw<
           Array<{ namaDatabase: string }>
         >`SELECT current_database() AS "namaDatabase"`;
         expect(database[0]?.namaDatabase).toBe('capstone_antrean_test');
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tiketId)) {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            tiketId,
+          )
+        ) {
           throw new Error('UUID pengujian tidak valid');
         }
-        const sebelum = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
-        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+        const sebelum = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
         });
+        const counterSebelum = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
         const namaConstraint = `e2e_requeue_rollback_${randomBytes(6).toString('hex')}`;
         let terpasang = false;
         try {
@@ -2706,10 +2792,14 @@ describe('QR Check-In API (e2e)', () => {
             );
           }
         }
-        const sesudah = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
-        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow({
-          where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+        const sesudah = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
         });
+        const counterSesudah = await db().urutanAntreanHarian.findUniqueOrThrow(
+          {
+            where: { layananId_tanggal: { layananId, tanggal: hariIniDb } },
+          },
+        );
         expect(sesudah.status).toBe(StatusTiket.DILEWATI);
         expect(sesudah.versi).toBe(sebelum.versi);
         expect(sesudah.loketId).toBe(sebelum.loketId);
@@ -2718,28 +2808,44 @@ describe('QR Check-In API (e2e)', () => {
         expect(sesudah.masukAntreanPada).toEqual(sebelum.masukAntreanPada);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-        expect(counterSesudah.urutanMasukTerakhir).toBe(counterSebelum.urutanMasukTerakhir);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
-        })).toBe(0);
+        expect(counterSesudah.urutanMasukTerakhir).toBe(
+          counterSebelum.urutanMasukTerakhir,
+        );
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'REQUEUE' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('setelah REQUEUE tiket dapat dipanggil kembali tanpa membuat tiket baru', async () => {
         await siapkanTiketDilewati();
-        const sebelum = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+        const sebelum = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
+        });
         await antreUlang().expect(200);
         const response = await panggilAntrean().expect(200);
-        const hasil = response.body as { tiketId: string; status: StatusTiket; loketId: string };
+        const hasil = response.body as {
+          tiketId: string;
+          status: StatusTiket;
+          loketId: string;
+        };
         expect(hasil.tiketId).toBe(tiketId);
         expect(hasil.status).toBe(StatusTiket.DIPANGGIL);
         expect(hasil.loketId).toBe(loketId);
-        const sesudah = await db().tiketAntrean.findUniqueOrThrow({ where: { id: tiketId } });
+        const sesudah = await db().tiketAntrean.findUniqueOrThrow({
+          where: { id: tiketId },
+        });
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-        expect(sesudah.urutanMasukAntrean).toBeGreaterThan(sebelum.urutanMasukAntrean ?? 0);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-        })).toBe(2);
+        expect(sesudah.urutanMasukAntrean).toBeGreaterThan(
+          sebelum.urutanMasukAntrean ?? 0,
+        );
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+          }),
+        ).toBe(2);
       }, 30000);
     });
 
@@ -2845,9 +2951,11 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(tiket.status).toBe(StatusTiket.MENUNGGU);
         expect(tiket.pelayananDimulaiPada).toBeNull();
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('menolak START melalui loket berbeda tanpa mengubah tiket', async () => {
@@ -2898,9 +3006,11 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(sesudah.status).toBe(StatusTiket.DILAYANI);
         expect(sesudah.versi).toBe(sebelum.versi + 1);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
-        })).toBe(1);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('dua START bersamaan hanya dapat berhasil sekali', async () => {
@@ -2935,9 +3045,11 @@ describe('QR Check-In API (e2e)', () => {
           where: { id: tiketId },
         });
         expect(tiket.status).toBe(StatusTiket.DILAYANI);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'CALL' },
-        })).toBe(1);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'CALL' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('rollback START mengembalikan status, waktu dan versi ketika audit gagal', async () => {
@@ -2952,13 +3064,19 @@ describe('QR Check-In API (e2e)', () => {
           !['localhost', '127.0.0.1'].includes(url.hostname) ||
           url.port !== '5433'
         ) {
-          throw new Error('Rollback START hanya boleh pada PostgreSQL testing lokal');
+          throw new Error(
+            'Rollback START hanya boleh pada PostgreSQL testing lokal',
+          );
         }
         const database = await db().$queryRaw<
           Array<{ namaDatabase: string }>
         >`SELECT current_database() AS "namaDatabase"`;
         expect(database[0]?.namaDatabase).toBe('capstone_antrean_test');
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tiketId)) {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            tiketId,
+          )
+        ) {
           throw new Error('UUID pengujian START tidak valid');
         }
 
@@ -2993,16 +3111,22 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(sesudah.status).toBe(StatusTiket.DIPANGGIL);
         expect(sesudah.versi).toBe(sebelum.versi);
-        expect(sesudah.pelayananDimulaiPada).toEqual(sebelum.pelayananDimulaiPada);
-        expect(sesudah.pelayananSelesaiPada).toEqual(sebelum.pelayananSelesaiPada);
+        expect(sesudah.pelayananDimulaiPada).toEqual(
+          sebelum.pelayananDimulaiPada,
+        );
+        expect(sesudah.pelayananSelesaiPada).toEqual(
+          sebelum.pelayananSelesaiPada,
+        );
         expect(sesudah.loketId).toBe(sebelum.loketId);
         expect(sesudah.dipanggilPada).toEqual(sebelum.dipanggilPada);
         expect(sesudah.urutanMasukAntrean).toBe(sebelum.urutanMasukAntrean);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'START_SERVICE' },
+          }),
+        ).toBe(0);
       }, 30000);
     });
 
@@ -3064,9 +3188,9 @@ describe('QR Check-In API (e2e)', () => {
           versi: sebelum.versi + 1,
         });
         expect(new Date(hasil.pelayananSelesaiPada).getTime()).not.toBeNaN();
-        expect(new Date(hasil.pelayananSelesaiPada).getTime()).toBeGreaterThanOrEqual(
-          sebelum.pelayananDimulaiPada?.getTime() ?? 0,
-        );
+        expect(
+          new Date(hasil.pelayananSelesaiPada).getTime(),
+        ).toBeGreaterThanOrEqual(sebelum.pelayananDimulaiPada?.getTime() ?? 0);
 
         const sesudah = await db().tiketAntrean.findUniqueOrThrow({
           where: { id: tiketId },
@@ -3075,7 +3199,9 @@ describe('QR Check-In API (e2e)', () => {
         expect(sesudah.pelayananSelesaiPada?.toISOString()).toBe(
           hasil.pelayananSelesaiPada,
         );
-        expect(sesudah.pelayananDimulaiPada).toEqual(sebelum.pelayananDimulaiPada);
+        expect(sesudah.pelayananDimulaiPada).toEqual(
+          sebelum.pelayananDimulaiPada,
+        );
         expect(sesudah.versi).toBe(sebelum.versi + 1);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
@@ -3118,9 +3244,11 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(tiket.status).toBe(StatusTiket.DIPANGGIL);
         expect(tiket.pelayananSelesaiPada).toBeNull();
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
+          }),
+        ).toBe(0);
       }, 30000);
 
       it('menolak COMPLETE dari loket berbeda tanpa perubahan tiket', async () => {
@@ -3128,7 +3256,9 @@ describe('QR Check-In API (e2e)', () => {
         const sebelum = await db().tiketAntrean.findUniqueOrThrow({
           where: { id: tiketId },
         });
-        await selesaikanPelayanan(petugasA.token, tiketId, randomUUID()).expect(403);
+        await selesaikanPelayanan(petugasA.token, tiketId, randomUUID()).expect(
+          403,
+        );
         const sesudah = await db().tiketAntrean.findUniqueOrThrow({
           where: { id: tiketId },
         });
@@ -3171,9 +3301,11 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(sesudah.status).toBe(StatusTiket.SELESAI);
         expect(sesudah.versi).toBe(sebelum.versi + 1);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
-        })).toBe(1);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
+          }),
+        ).toBe(1);
       }, 30000);
 
       it('dua COMPLETE bersamaan hanya menghasilkan satu perubahan dan audit', async () => {
@@ -3257,13 +3389,19 @@ describe('QR Check-In API (e2e)', () => {
           !['localhost', '127.0.0.1'].includes(url.hostname) ||
           url.port !== '5433'
         ) {
-          throw new Error('Rollback COMPLETE hanya pada PostgreSQL testing lokal');
+          throw new Error(
+            'Rollback COMPLETE hanya pada PostgreSQL testing lokal',
+          );
         }
         const database = await db().$queryRaw<
           Array<{ namaDatabase: string }>
         >`SELECT current_database() AS "namaDatabase"`;
         expect(database[0]?.namaDatabase).toBe('capstone_antrean_test');
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tiketId)) {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            tiketId,
+          )
+        ) {
           throw new Error('UUID pengujian COMPLETE tidak valid');
         }
 
@@ -3297,18 +3435,23 @@ describe('QR Check-In API (e2e)', () => {
         });
         expect(sesudah.status).toBe(StatusTiket.DILAYANI);
         expect(sesudah.versi).toBe(sebelum.versi);
-        expect(sesudah.pelayananDimulaiPada).toEqual(sebelum.pelayananDimulaiPada);
-        expect(sesudah.pelayananSelesaiPada).toEqual(sebelum.pelayananSelesaiPada);
+        expect(sesudah.pelayananDimulaiPada).toEqual(
+          sebelum.pelayananDimulaiPada,
+        );
+        expect(sesudah.pelayananSelesaiPada).toEqual(
+          sebelum.pelayananSelesaiPada,
+        );
         expect(sesudah.loketId).toBe(sebelum.loketId);
         expect(sesudah.dipanggilPada).toEqual(sebelum.dipanggilPada);
         expect(sesudah.urutanMasukAntrean).toBe(sebelum.urutanMasukAntrean);
         expect(sesudah.nomorUrut).toBe(sebelum.nomorUrut);
         expect(sesudah.kodeTiket).toBe(sebelum.kodeTiket);
-        expect(await db().peristiwaAntrean.count({
-          where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
-        })).toBe(0);
+        expect(
+          await db().peristiwaAntrean.count({
+            where: { tiketAntreanId: tiketId, tipe: 'COMPLETE' },
+          }),
+        ).toBe(0);
       }, 30000);
     });
-
   });
 });

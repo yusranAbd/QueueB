@@ -270,6 +270,7 @@ describe('One-Scan QR atomic API (isolated PostgreSQL)', () => {
       }
       const ids = accounts.map((a) => a.id);
       await db.sesiPengguna.deleteMany({ where: { penggunaId: { in: ids } } });
+      await db.notifikasi.deleteMany({ where: { penggunaId: { in: ids } } });
       await db.pengguna.deleteMany({ where: { id: { in: ids } } });
     } finally {
       await app.close();

@@ -64,7 +64,9 @@ describe('Queue REST Snapshot (e2e)', () => {
       !['localhost', '127.0.0.1'].includes(url.hostname) ||
       url.port !== '5433'
     ) {
-      throw new Error('Snapshot E2E hanya boleh memakai capstone_antrean_test lokal port 5433');
+      throw new Error(
+        'Snapshot E2E hanya boleh memakai capstone_antrean_test lokal port 5433',
+      );
     }
     if ((process.env.SERVICE_TIME_ZONE ?? 'Asia/Jakarta') !== 'Asia/Jakarta') {
       throw new Error('Snapshot E2E memakai SERVICE_TIME_ZONE=Asia/Jakarta');
@@ -85,7 +87,10 @@ describe('Queue REST Snapshot (e2e)', () => {
     );
   }
 
-  async function buatAkun(nama: string, peran: PeranPengguna): Promise<AkunTesting> {
+  async function buatAkun(
+    nama: string,
+    peran: PeranPengguna,
+  ): Promise<AkunTesting> {
     const email = `snapshot-${randomUUID()}@test.local`;
     const registrasi = await request(server())
       .post('/api/v1/auth/register')
@@ -106,7 +111,11 @@ describe('Queue REST Snapshot (e2e)', () => {
     };
   }
 
-  function getSnapshot(token: string, idLoket: string, halamanTindakLanjut = 1) {
+  function getSnapshot(
+    token: string,
+    idLoket: string,
+    halamanTindakLanjut = 1,
+  ) {
     return request(server())
       .get('/api/v1/queue/snapshot')
       .query({ loketId: idLoket, halamanTindakLanjut })
@@ -161,11 +170,21 @@ describe('Queue REST Snapshot (e2e)', () => {
       })),
     });
     const loket = await db().loket.create({
-      data: { layananId, kode: 'LS-1', nama: 'Loket Snapshot Satu', aktif: true },
+      data: {
+        layananId,
+        kode: 'LS-1',
+        nama: 'Loket Snapshot Satu',
+        aktif: true,
+      },
     });
     loketId = loket.id;
     const loketLain = await db().loket.create({
-      data: { layananId, kode: 'LS-2', nama: 'Loket Snapshot Dua', aktif: true },
+      data: {
+        layananId,
+        kode: 'LS-2',
+        nama: 'Loket Snapshot Dua',
+        aktif: true,
+      },
     });
     loketLainId = loketLain.id;
     await db().penugasanPetugas.create({
@@ -211,7 +230,9 @@ describe('Queue REST Snapshot (e2e)', () => {
 
   afterEach(async () => {
     if (prisma && tiketId) {
-      await db().peristiwaAntrean.deleteMany({ where: { tiketAntreanId: tiketId } });
+      await db().peristiwaAntrean.deleteMany({
+        where: { tiketAntreanId: tiketId },
+      });
       await db().tiketAntrean.deleteMany({ where: { id: tiketId } });
       tiketId = '';
     }
@@ -228,7 +249,8 @@ describe('Queue REST Snapshot (e2e)', () => {
       if (prisma) {
         if (layananId) {
           const tiket = await db().tiketAntrean.findMany({
-            where: { layananId }, select: { id: true },
+            where: { layananId },
+            select: { id: true },
           });
           const ids = tiket.map((t) => t.id);
           if (ids.length) {
@@ -247,6 +269,9 @@ describe('Queue REST Snapshot (e2e)', () => {
         }
         if (idPengguna.length) {
           await db().sesiPengguna.deleteMany({
+            where: { penggunaId: { in: idPengguna } },
+          });
+          await db().notifikasi.deleteMany({
             where: { penggunaId: { in: idPengguna } },
           });
           await db().pengguna.deleteMany({
@@ -272,7 +297,11 @@ describe('Queue REST Snapshot (e2e)', () => {
       tiketId,
       status: StatusTiket.MENUNGGU,
     });
-    expect(body.daftarPasien?.tiket[0]).toMatchObject({ tiketId, namaPasien: 'Pemilik Tiket Snapshot', status: StatusTiket.MENUNGGU });
+    expect(body.daftarPasien?.tiket[0]).toMatchObject({
+      tiketId,
+      namaPasien: 'Pemilik Tiket Snapshot',
+      status: StatusTiket.MENUNGGU,
+    });
     expect(body.daftarPasien?.tiket[0].checkInPada).not.toBeNull();
     expect(body.loket.map((item) => item.id)).toEqual([loketId, loketLainId]);
     expect(body.loket.every((item) => item.tiketAktif.length === 0)).toBe(true);
@@ -282,7 +311,9 @@ describe('Queue REST Snapshot (e2e)', () => {
 
   it('enam snapshot paralel mempertahankan scope dan status kanonis tanpa mengirim mutasi', async () => {
     const outcomes = await Promise.allSettled(
-      Array.from({ length: 6 }, () => getSnapshot(petugas.token, loketId).expect(200)),
+      Array.from({ length: 6 }, () =>
+        getSnapshot(petugas.token, loketId).expect(200),
+      ),
     );
     const responses = outcomes.map((outcome) => {
       if (outcome.status === 'rejected') throw outcome.reason;
@@ -296,7 +327,9 @@ describe('Queue REST Snapshot (e2e)', () => {
       expect(body.menunggu.tiket).toEqual([
         expect.objectContaining({ tiketId, status: StatusTiket.MENUNGGU }),
       ]);
-      expect(body.loket.every((loket) => loket.tiketAktif.length === 0)).toBe(true);
+      expect(body.loket.every((loket) => loket.tiketAktif.length === 0)).toBe(
+        true,
+      );
       expect(JSON.stringify(body)).not.toContain(petugas.token);
     }
     await getSnapshot(petugas.token, loketLainId).expect(403);
@@ -319,33 +352,68 @@ describe('Queue REST Snapshot (e2e)', () => {
   });
 
   it('SKIP bertahan setelah GET baru; REQUEUE memakai row yang sama dan tidak pernah dipanggil otomatis sebelum requeue', async () => {
-    const post = (path: string) => request(server()).post('/api/v1' + path).set('Authorization', 'Bearer ' + petugas.token).send({loketId});
+    const post = (path: string) =>
+      request(server())
+        .post('/api/v1' + path)
+        .set('Authorization', 'Bearer ' + petugas.token)
+        .send({ loketId });
     await post('/queue/panggil').expect(200);
     await post('/queue/' + tiketId + '/lewati').expect(200);
-    const skipped = (await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
+    const skipped = (await getSnapshot(petugas.token, loketId).expect(200))
+      .body as SnapshotAntrean;
     expect(skipped.menunggu.total).toBe(0);
-    expect(skipped.daftarPasien?.tiket).toEqual([expect.objectContaining({tiketId,status:'DILEWATI',bisaAntreUlang:true,namaPasien:'Pemilik Tiket Snapshot'})]);
+    expect(skipped.daftarPasien?.tiket).toEqual([
+      expect.objectContaining({
+        tiketId,
+        status: 'DILEWATI',
+        bisaAntreUlang: true,
+        namaPasien: 'Pemilik Tiket Snapshot',
+      }),
+    ]);
     await post('/queue/panggil').expect(404);
     await post('/queue/' + tiketId + '/antre-ulang').expect(200);
-    const queued = (await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
-    expect(queued.daftarPasien?.tiket.filter(t=>t.tiketId===tiketId)).toHaveLength(1);
+    const queued = (await getSnapshot(petugas.token, loketId).expect(200))
+      .body as SnapshotAntrean;
+    expect(
+      queued.daftarPasien?.tiket.filter((t) => t.tiketId === tiketId),
+    ).toHaveLength(1);
     expect(queued.daftarPasien?.tiket[0].status).toBe('MENUNGGU');
     await post('/queue/panggil').expect(200);
     await post('/queue/' + tiketId + '/panggil-ulang').expect(200);
     await post('/queue/' + tiketId + '/mulai-pelayanan').expect(200);
     await post('/queue/' + tiketId + '/selesaikan-pelayanan').expect(200);
-    const done = (await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
+    const done = (await getSnapshot(petugas.token, loketId).expect(200))
+      .body as SnapshotAntrean;
     expect(done.daftarPasien?.tiket).toEqual([]);
-    expect(done.loket.every(l=>l.tiketAktif.length===0)).toBe(true);
+    expect(done.loket.every((l) => l.tiketAktif.length === 0)).toBe(true);
   });
 
   it('CHECK_IN lama dapat ditemukan dan dimasukkan melalui aksi baris tanpa UUID manual', async () => {
-    await db().tiketAntrean.update({where:{id:tiketId},data:{status:StatusTiket.CHECK_IN,urutanMasukAntrean:null,masukAntreanPada:null}});
-    const before = (await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
-    expect(before.daftarPasien?.tiket[0]).toMatchObject({tiketId,status:'CHECK_IN',bisaMasukAntrean:true});
-    await request(server()).post('/api/v1/queue/'+tiketId+'/masuk').set('Authorization','Bearer '+petugas.token).send({loketId}).expect(200);
-    const after = (await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
-    expect(after.daftarPasien?.tiket).toEqual([expect.objectContaining({tiketId,status:'MENUNGGU'})]);
+    await db().tiketAntrean.update({
+      where: { id: tiketId },
+      data: {
+        status: StatusTiket.CHECK_IN,
+        urutanMasukAntrean: null,
+        masukAntreanPada: null,
+      },
+    });
+    const before = (await getSnapshot(petugas.token, loketId).expect(200))
+      .body as SnapshotAntrean;
+    expect(before.daftarPasien?.tiket[0]).toMatchObject({
+      tiketId,
+      status: 'CHECK_IN',
+      bisaMasukAntrean: true,
+    });
+    await request(server())
+      .post('/api/v1/queue/' + tiketId + '/masuk')
+      .set('Authorization', 'Bearer ' + petugas.token)
+      .send({ loketId })
+      .expect(200);
+    const after = (await getSnapshot(petugas.token, loketId).expect(200))
+      .body as SnapshotAntrean;
+    expect(after.daftarPasien?.tiket).toEqual([
+      expect.objectContaining({ tiketId, status: 'MENUNGGU' }),
+    ]);
   });
 
   it('menolak akses tanpa JWT dan pemilik tiket berperan USER', async () => {
@@ -365,19 +433,47 @@ describe('Queue REST Snapshot (e2e)', () => {
     await getSnapshot(petugas.token, loketId).expect(403);
   });
   it('lebih dari 100 CHECK_IN tetap dapat dijangkau tanpa mengubah grup FIFO', async () => {
-    const counter=await db().urutanAntreanHarian.update({where:{layananId_tanggal:{layananId,tanggal:tanggalDb}},data:{nomorTerakhir:{increment:101}}});
-    const ids=Array.from({length:101},()=>randomUUID());
+    const counter = await db().urutanAntreanHarian.update({
+      where: { layananId_tanggal: { layananId, tanggal: tanggalDb } },
+      data: { nomorTerakhir: { increment: 101 } },
+    });
+    const ids = Array.from({ length: 101 }, () => randomUUID());
     try {
-      await db().tiketAntrean.createMany({data:ids.map((id,i)=>({id,penggunaId:pemilik.id,layananId,tanggalAntrean:tanggalDb,nomorUrut:counter.nomorTerakhir-100+i,kodeTiket:'V4'+randomBytes(10).toString('hex'),status:StatusTiket.CHECK_IN,checkInPada:new Date()}))});
-      const first=(await getSnapshot(petugas.token,loketId).expect(200)).body as SnapshotAntrean;
-      const next=(await getSnapshot(petugas.token,loketId,2).expect(200)).body as SnapshotAntrean;
-      expect(first.daftarPasien).toMatchObject({halamanTindakLanjut:1,jumlahHalamanTindakLanjut:2});
-      expect(first.daftarPasien?.tiket.filter(t=>t.status==='CHECK_IN')).toHaveLength(100);
-      expect(next.daftarPasien?.tiket.filter(t=>t.status==='CHECK_IN')).toHaveLength(1);
+      await db().tiketAntrean.createMany({
+        data: ids.map((id, i) => ({
+          id,
+          penggunaId: pemilik.id,
+          layananId,
+          tanggalAntrean: tanggalDb,
+          nomorUrut: counter.nomorTerakhir - 100 + i,
+          kodeTiket: 'V4' + randomBytes(10).toString('hex'),
+          status: StatusTiket.CHECK_IN,
+          checkInPada: new Date(),
+        })),
+      });
+      const first = (await getSnapshot(petugas.token, loketId).expect(200))
+        .body as SnapshotAntrean;
+      const next = (await getSnapshot(petugas.token, loketId, 2).expect(200))
+        .body as SnapshotAntrean;
+      expect(first.daftarPasien).toMatchObject({
+        halamanTindakLanjut: 1,
+        jumlahHalamanTindakLanjut: 2,
+      });
+      expect(
+        first.daftarPasien?.tiket.filter((t) => t.status === 'CHECK_IN'),
+      ).toHaveLength(100);
+      expect(
+        next.daftarPasien?.tiket.filter((t) => t.status === 'CHECK_IN'),
+      ).toHaveLength(1);
       expect(next.menunggu.tiket).toEqual(first.menunggu.tiket);
-      const combined=[...(first.daftarPasien?.tiket??[]),...(next.daftarPasien?.tiket??[])].filter(t=>t.status==='CHECK_IN');
-      expect(new Set(combined.map(t=>t.tiketId)).size).toBe(101);
-      await getSnapshot(petugas.token,loketId,0).expect(400);
-    } finally { await db().tiketAntrean.deleteMany({where:{id:{in:ids}}}); }
+      const combined = [
+        ...(first.daftarPasien?.tiket ?? []),
+        ...(next.daftarPasien?.tiket ?? []),
+      ].filter((t) => t.status === 'CHECK_IN');
+      expect(new Set(combined.map((t) => t.tiketId)).size).toBe(101);
+      await getSnapshot(petugas.token, loketId, 0).expect(400);
+    } finally {
+      await db().tiketAntrean.deleteMany({ where: { id: { in: ids } } });
+    }
   });
 });

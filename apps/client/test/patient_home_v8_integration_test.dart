@@ -59,17 +59,17 @@ void main() {
               client: MockClient(backend.handle),
             )
             ..accessToken = 'fixture'
-            ..user = {...backend.user, 'nama': 'Nama Awal Sesi'};
+            ..user = {...backend.user, 'nama': 'Awal Sesi'};
       await t.pumpWidget(QueueBApp(api: api));
       await t.pumpAndSettle();
       final owner = t.state(find.byType(PatientPage)),
           reads = backend.requests.length;
-      expect(find.text('Nama Awal Sesi'), findsOneWidget);
-      api.user = {...api.user!, 'nama': 'Nama Profil Terbaru'};
+      expect(find.text('Halo, Awal'), findsOneWidget);
+      api.user = {...api.user!, 'nama': 'Terbaru Profil'};
       api.notifyListeners();
       await t.pumpAndSettle();
-      expect(find.text('Nama Profil Terbaru'), findsOneWidget);
-      expect(find.text('Nama Awal Sesi'), findsNothing);
+      expect(find.text('Halo, Terbaru'), findsOneWidget);
+      expect(find.text('Halo, Awal'), findsNothing);
       expect(t.state(find.byType(PatientPage)), same(owner));
       expect(backend.requests.length, reads);
       await t.pumpWidget(const SizedBox());
@@ -100,7 +100,7 @@ void main() {
           hasLength(1),
         );
         if (fail) {
-          expect(find.textContaining('Jam belum tersedia'), findsOneWidget);
+          expect(find.textContaining('Jam belum tersedia'), findsWidgets);
         } else {
           expect(find.textContaining('08.00–16.00'), findsOneWidget);
         }

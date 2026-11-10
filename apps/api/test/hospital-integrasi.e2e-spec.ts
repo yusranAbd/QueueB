@@ -302,6 +302,9 @@ describe('Integrasi Hospital dan HOSP-OPS-01 (e2e)', () => {
         await db().sesiPengguna.deleteMany({
           where: { penggunaId: { in: akunIds } },
         });
+        await db().notifikasi.deleteMany({
+          where: { penggunaId: { in: akunIds } },
+        });
         await db().pengguna.deleteMany({ where: { id: { in: akunIds } } });
       }
     } finally {

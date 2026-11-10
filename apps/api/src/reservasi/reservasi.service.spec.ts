@@ -97,6 +97,8 @@ function buatTransactionMock() {
     },
     tiketAntrean: {
       findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       count: jest.fn(),
       create: jest.fn(),
     },

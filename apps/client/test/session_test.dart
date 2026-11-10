@@ -614,12 +614,9 @@ void main() {
       await tester.ensureVisible(openTicket);
       await tester.tap(openTicket);
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
       expect(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text('QA-001'),
-        ),
+        find.descendant(of: find.byType(Dialog), matching: find.text('QA-001')),
         findsOneWidget,
       );
       final exiting = api.logout();
@@ -630,7 +627,7 @@ void main() {
       expect(store.value, isNull);
       expect(api.user, isNull);
       expect(api.accessToken, isNull);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
       expect(
         find.byKey(const ValueKey('reservation-ticket-fixture')),
         findsNothing,
@@ -684,34 +681,25 @@ void main() {
       me.complete(reply(identity(role)));
       await tester.pumpAndSettle();
       await pending;
-      if (role == 'ADMIN') {
-        await tester.tap(
-          find.widgetWithText(OutlinedButton, 'Menu administrasi'),
-        );
-        await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.byTooltip('Profil akun'),
-          200,
-          scrollable: find.byType(Scrollable).last,
-        );
-      }
+      final adminAccountMenu = find.byWidgetPredicate(
+        (w) =>
+            w is Tooltip &&
+            w.message?.startsWith('Menu ') == true &&
+            w.message != 'Menu administrasi',
+      );
       expect(
         role == 'USER'
             ? find.widgetWithText(NavigationDestination, 'Profil')
             : role == 'PETUGAS' || role == 'DOKTER'
             ? operationalProfileButton()
-            : find.byTooltip('Profil akun'),
+            : adminAccountMenu.first,
         findsOneWidget,
       );
-      if (role == 'ADMIN') {
-        await tester.tapAt(const Offset(5, 5));
-        await tester.pumpAndSettle();
-      }
       expect(
         find.text(switch (role) {
           'ADMIN' => 'Dashboard',
           'PETUGAS' => 'Ruangan yang ditugaskan',
-          _ => 'Semoga harimu sehat dan lancar',
+          _ => 'Pasien Umum',
         }),
         findsWidgets,
       );

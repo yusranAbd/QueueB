@@ -25,6 +25,18 @@ class FakeBackend {
   final List<(String, String, Json)> requests = [];
   final List<Json> tickets = [], appointments = [];
   String status = 'DIPESAN';
+  bool displayPaired = false;
+  final Json displayDevice = {
+    'id': 'device',
+    'nama': 'TV Poli Umum',
+    'aktif': true,
+    'layananId': '00000000-0000-4000-8000-000000000001',
+    'layanan': {
+      'id': '00000000-0000-4000-8000-000000000001',
+      'nama': 'Poli Umum',
+      'aktif': true,
+    },
+  };
   bool offline = false, slotsAvailable = true;
   Completer<void>? catalogGate;
   Json get user => {
@@ -68,7 +80,13 @@ class FakeBackend {
         ? <String, dynamic>{}
         : object(jsonDecode(request.body));
     requests.add((request.method, path, body));
-    if (path == '/display/sesi') return reply({}, 401);
+    if (path == '/display/pairing') {
+      displayPaired = true;
+      return reply(displayDevice);
+    }
+    if (path == '/display/sesi') {
+      return displayPaired ? reply(displayDevice) : reply({}, 401);
+    }
     if (path == '/notifikasi/saya') {
       return reply({'data': <Json>[], 'belumDibaca': 0, 'jumlahHalaman': 1});
     }
@@ -290,7 +308,7 @@ void main() {
           await tester.tap(find.byTooltip('Menu administrasi'));
           await tester.pumpAndSettle();
         }
-        await tester.tap(find.widgetWithText(ListTile, 'Poliklinik'));
+        await tester.tap(find.text('Kelola Layanan Terpadu').first);
         await tester.pumpAndSettle();
       }
     }
@@ -302,9 +320,11 @@ void main() {
   }
 
   Future<void> press(WidgetTester tester, String text, {Type? type}) async {
-    final base = type == null
-        ? find.text(text)
-        : find.widgetWithText(type, text);
+    var base = type == null ? find.text(text) : find.widgetWithText(type, text);
+    // Aksi ikon (mis. Public Display) kini dibuka melalui tooltip.
+    if (base.evaluate().isEmpty && find.byTooltip(text).evaluate().isNotEmpty) {
+      base = find.byTooltip(text);
+    }
     if (base.evaluate().isEmpty) {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, 5000));
       await tester.pumpAndSettle();
@@ -322,24 +342,22 @@ void main() {
   }
 
   testWidgets(
-    'Calendar remains usable after manual date outside supported range',
+    'Walk-in date selection uses supported date shortcuts without free-form input',
     (tester) async {
-      await launch(tester, FakeBackend('USER'));
+      await launch(tester, FakeBackend('USER', mode: 'ANTREAN_HARIAN'));
       await openPatientCatalog(tester, walkIn: true);
 
       await tester.pumpAndSettle();
-      for (final input in ['2020-01-01', '2099-12-31', 'tidak valid']) {
-        await tester.enterText(
-          find.widgetWithText(TextField, 'Tanggal pelayanan'),
-          input,
-        );
-        await tester.tap(find.byTooltip('Pilih tanggal pelayanan'));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        expect(find.byType(DatePickerDialog), findsOneWidget);
-        await tester.tap(find.text('Batal'));
-        await tester.pumpAndSettle();
+      // Tanggal dipilih lewat pilihan Hari ini/Besok/Lusa, bukan isian bebas.
+      expect(find.widgetWithText(TextField, 'Tanggal pelayanan'), findsNothing);
+      for (final label in ['Hari ini', 'Besok', 'Lusa']) {
+        expect(find.text(label), findsOneWidget);
       }
+      expect(
+        find.textContaining('Tanggal dapat dipilih hingga 365 hari ke depan.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -355,6 +373,14 @@ void main() {
       if (call.method == 'isLanguageAvailable' && unavailableLanguage) {
         return false;
       }
+      // Mesin suara kini memilih suara Indonesia dari daftar suara perangkat.
+      if (call.method == 'getVoices') {
+        return unavailableLanguage
+            ? <Map<String, String>>[]
+            : [
+                {'name': 'id-voice', 'locale': 'id-ID'},
+              ];
+      }
       if (call.method == 'speak' && failSpeak) {
         throw PlatformException(code: 'synthesis-failed');
       }
@@ -368,16 +394,11 @@ void main() {
     );
     await launch(tester, FakeBackend('USER'), login: false);
     await press(tester, 'Masuk ke Public Display');
-    await press(tester, 'Konfigurasi lanjutan (token existing)');
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'ID layanan'),
-      uid,
+      find.widgetWithText(TextFormField, 'Kode Aktivasi'),
+      '123456789012',
     );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Token perangkat'),
-      'a' * 64,
-    );
-    await press(tester, 'Hubungkan display');
+    await press(tester, 'Hubungkan Perangkat');
   }
 
   testWidgets('Failed TTS activation must not show audio enabled', (
@@ -398,6 +419,11 @@ void main() {
     (tester) async {
       await displayForSpeech(tester, unavailableLanguage: true);
       await press(tester, 'Aktifkan suara');
+      // Mesin menunggu daftar suara hingga batas waktu (waktu nyata).
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 3600)),
+      );
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Aktifkan suara'), findsOneWidget);
       expect(find.text('Matikan suara'), findsNothing);
@@ -460,8 +486,9 @@ void main() {
     (tester) async {
       final server = FakeBackend('ADMIN');
       await launch(tester, server);
-      expect(find.text('Tambah'), findsOneWidget);
-      await press(tester, 'Tambah');
+      expect(find.text('Tambah layanan'), findsOneWidget);
+      await tester.tap(find.text('Tambah layanan'));
+      await tester.pump(const Duration(seconds: 1));
       await tester.enterText(find.widgetWithText(TextFormField, 'Kode'), 'PU');
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Nama'),
@@ -523,10 +550,10 @@ void main() {
     await openPatientCatalog(tester, walkIn: true);
 
     await tester.pumpAndSettle();
-    await press(tester, 'Reservasi walk-in');
+    await press(tester, 'Reservasi Walk-in');
     await press(tester, 'Lanjutkan');
     // Successful walk-in opens Riwayat, the single ticket list.
-    expect(find.text('UM-001'), findsOneWidget);
+    expect(find.text('Antrean UM-001'), findsOneWidget);
     await press(tester, 'Buka Tiket');
     // An eligible same-day ticket issues the QR when opened.
     expect(find.byType(QrImageView), findsOneWidget);
@@ -553,12 +580,12 @@ void main() {
       await openPatientCatalog(tester);
 
       await tester.pumpAndSettle();
-      await press(tester, 'Lihat Detail Dokter');
+      await press(tester, 'Pilih Jadwal');
       // The single available session automatically loads slots in Detail Dokter.
       expect(find.text('Buat Janji Temu'), findsNothing);
-      expect(find.text('Lanjutkan Reservasi'), findsOneWidget);
+      expect(find.text('Konfirmasi Janji'), findsOneWidget);
       await press(tester, 'Sisa slot 2');
-      await press(tester, 'Lanjutkan Reservasi');
+      await press(tester, 'Konfirmasi Janji');
       await press(tester, 'Konfirmasi Janji Temu');
       expect(
         server.requests
@@ -586,16 +613,11 @@ void main() {
     final server = FakeBackend('USER');
     await launch(tester, server, login: false);
     await press(tester, 'Masuk ke Public Display');
-    await press(tester, 'Konfigurasi lanjutan (token existing)');
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'ID layanan'),
-      uid,
+      find.widgetWithText(TextFormField, 'Kode Aktivasi'),
+      '123456789012',
     );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Token perangkat'),
-      'a' * 64,
-    );
-    await press(tester, 'Hubungkan display');
+    await press(tester, 'Hubungkan Perangkat');
     expect(find.text('UM-001'), findsWidgets);
     expect(
       tester
@@ -629,11 +651,7 @@ void main() {
     tester,
   ) async {
     await launch(tester, FakeBackend('USER'), size: const Size(375, 812));
-    expect(
-      find.textContaining(RegExp(r'^Selamat (pagi|siang|sore|malam),$')),
-      findsOneWidget,
-    );
-    expect(find.text('Akun USER'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Halo, ')), findsOneWidget);
     await press(tester, 'Reservasi');
     await press(tester, 'Buat Reservasi');
     await press(tester, 'Cari Dokter');
@@ -721,22 +739,26 @@ void main() {
       expect(
         find.descendant(
           of: card,
-          matching: find.text(reservationStatus(status)),
+          matching: find.textContaining(reservationStatus(status)),
         ),
-        findsOneWidget,
+        findsWidgets,
       );
       await press(
         tester,
-        ['SELESAI', 'DIBATALKAN'].contains(status)
+        status == 'SELESAI'
+            ? 'Lihat Detail Kunjungan'
+            : status == 'DIBATALKAN'
             ? 'Lihat Detail'
+            : find.text('Pantau Tiket & QR').evaluate().isNotEmpty
+            ? 'Pantau Tiket & QR'
             : 'Buka Tiket',
       );
       expect(
         find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text(reservationStatus(status)),
+          of: find.byType(Dialog),
+          matching: find.textContaining(reservationStatus(status)),
         ),
-        findsOneWidget,
+        findsWidgets,
       );
       if (status != 'DIPESAN') expect(find.text('Terbitkan QR'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -779,7 +801,7 @@ void main() {
       await openPatientCatalog(tester);
 
       await tester.pumpAndSettle();
-      await press(tester, 'Lihat Detail Dokter');
+      await press(tester, 'Pilih Jadwal');
       expect(find.byTooltip('Kembali'), findsOneWidget);
       expect(find.text('Buat Janji Temu'), findsNothing);
       // Slot retrieval is automatic for a day with one practice session.
@@ -788,7 +810,7 @@ void main() {
       );
       expect(unavailable.onPressed, isNull);
       final book = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Lanjutkan Reservasi'),
+        find.widgetWithText(FilledButton, 'Konfirmasi Janji'),
       );
       expect(book.onPressed, isNull);
       expect(

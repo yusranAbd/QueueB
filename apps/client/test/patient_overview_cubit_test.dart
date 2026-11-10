@@ -195,7 +195,7 @@ void main() {
       expect(owner.state.load, PatientLoad.loaded);
       expect(find.text('Ambil Antrean'), findsWidgets);
       expect(find.text('Janji Temu'), findsWidgets);
-      expect(find.text('Kunjungan Terdekat'), findsOneWidget);
+      expect(find.text('KUNJUNGAN TERDEKAT'), findsOneWidget);
       expect(find.text('Belum ada kunjungan mendatang.'), findsOneWidget);
       final count = f.calls.length;
       (element as StatefulElement).markNeedsBuild();
