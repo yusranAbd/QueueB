@@ -23,3 +23,11 @@ Unit integrasi callback bukan bukti kamera fisik. Kamera Android/perangkat fisik
 [Screenshot desktop](images/staff-scan-fab/staff-1366x768.png) · [Laptop 1280×720](images/staff-scan-fab/staff-1280x720.png) · [Mobile](images/staff-scan-fab/staff-375x812.png) · [Scan berhasil](images/staff-scan-fab/scan-dialog.png) · [Laporan Chrome](images/staff-scan-fab/report.json).
 
 Runner: `apps/client/tool/browser-staff-v4.cjs` dengan `compact: true` dan opsi `cameraVideo` menunjuk video Y4M QR sintetis `SQ1.` diikuti 43 karakter A, sesuai fixture runner. Tanpa video, runner memeriksa petunjuk kamera tidak tersedia. Jangan memakai token atau QR pengguna nyata sebagai fixture.
+
+## Check-in tanpa QR (pasien tanpa HP)
+
+Di samping **Pindai QR** ada tombol **Tanpa QR** (`staff-manual-button`) yang membuka dialog pencarian. Petugas mengetik nomor antrean (mis. `A-025`), melihat nomor, status, layanan dan nama pasien yang disamarkan, mencocokkan nama dengan pasien di depannya, lalu menekan **Check-in & masuk antrean**. Backend: `POST /check-in/cari-nomor` (read-only) dan `POST /check-in/manual`; hasil dianggap berhasil hanya bila server mengembalikan `MENUNGGU` untuk tiket yang sama. Snapshot dimuat ulang setelah berhasil, dan realtime `ENQUEUE` tetap dikirim.
+
+Tombol mengikuti kondisi tombol Pindai QR (nonaktif saat memuat/memproses atau snapshot belum tersedia). Pada lebar di bawah 520 px kedua tombol berbagi satu baris di bawah kolom pencarian. Tiket yang sudah check-in, berstatus akhir, bukan hari pelayanan, atau di luar jam pelayanan ditampilkan dengan alasan dan tanpa tombol check-in. Kamera tidak diperlukan; input QR manual (payload teks) tetap tidak ada.
+
+Dialog tidak mengubah bloc: ia memanggil repository dan memicu refresh. Tes: `apps/client/test/staff_manual_check_in_test.dart` (format salah tidak mengirim request, cari lalu check-in, tiket tidak boleh check-in, error server). Tidak ada perubahan skema database atau migration. Belum diuji di perangkat fisik atau dengan database nyata.

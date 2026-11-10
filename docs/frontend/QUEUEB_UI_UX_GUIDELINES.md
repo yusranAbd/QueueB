@@ -85,10 +85,10 @@ mengikuti isi dan text scaling agar pembulatan tinggi font tidak menyebabkan
 overflow. Nama panjang memakai ellipsis dan tooltip nama lengkap. Keterangan Reservasi menjadi
 **Jadwal kunjungan dan antrean Anda.**
 
-Detail tiket langsung menampilkan QR bukti reservasi aktual QBR1 dari tiket
-milik pasien yang sudah diverifikasi. Panel QR Check-in Sementara dan
-penerbitan SQ1 otomatis dari dialog dihapus; timer/token sementara khusus
-dialog juga dihapus. Validasi tiket, status, PDF/cetak, realtime, cleanup
+Koreksi (selaras kode saat ini): detail tiket berstatus Dipesan menampilkan
+**QR Check-in** (SQ1, sementara, hanya pada hari pelayanan). QR bukti reservasi
+QBR1 hanya ada di PDF/nota dan tidak ditampilkan di layar detail. Pasien tanpa
+HP dilayani lewat check-in manual petugas berdasarkan nomor antrean. Validasi tiket, status, PDF/cetak, realtime, cleanup
 sesi, Cubit dan alur One-Scan petugas existing tetap dipertahankan. Tidak
 ada perubahan API, scanner, database atau tema global.
 
@@ -428,7 +428,7 @@ Public Display **tidak memakai skala dashboard desktop**. Pertahankan skala resp
 ## Perbedaan lima portal
 
 - **ADMIN:** kepadatan tabel, CRUD, search/filter/form. Informasi nama/status utama; identifier teknis tidak menjadi input manual bila ada pilihan data.
-- **PETUGAS:** antrean dan aksi pelayanan adalah fokus. Panel pelayanan cukup dominan; QR One-Scan dibuka lewat FloatingActionButton.extended Pindai QR, tanpa panel bawah/input manual. Sisakan inset bawah agar FAB tidak menutupi aksi terakhir; dokter terjadwal dan status antrean tetap terlihat. Urutan/prioritas mengikuti server.
+- **PETUGAS:** antrean dan aksi pelayanan adalah fokus. Panel pelayanan cukup dominan; QR One-Scan dibuka lewat tombol Pindai QR, tanpa panel bawah/input payload manual. Tombol Tanpa QR di sampingnya membuka dialog cari nomor antrean untuk check-in pasien tanpa HP. Sisakan inset bawah agar FAB tidak menutupi aksi terakhir; dokter terjadwal dan status antrean tetap terlihat. Urutan/prioritas mengikuti server.
 - **DOKTER:** monitoring jadwal/appointment/antrean read-only. Jangan menambahkan aksi pelayanan PETUGAS, rekam medis, atau data pasien yang tidak tersedia.
 - **PASIEN:** mobile-first, navigasi sederhana, booking/reservasi/tiket/QR. Jangan mengorbankan touch target/teks demi kepadatan desktop.
 - **PUBLIC DISPLAY:** informasi jarak jauh, tanpa scroll, pengumuman aktual, privasi dan keamanan perangkat.

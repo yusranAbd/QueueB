@@ -1983,6 +1983,40 @@ Token aktif tetap dikonsumsi (`tokenQrHash` dan expiry aktif dikosongkan). Audit
 
 **Kompatibilitas rollout:** `POST /check-in` tetap hanya CHECK_IN dan tetap menolak replay; `POST /queue/:id/masuk` tetap tersedia. CHECK_IN legacy yang terjadi setelah update ini memiliki bukti hash sehingga dapat dilanjutkan dengan QR semula sebelum expiry. CHECK_IN historis sebelum update yang tidak memiliki bukti hash tidak dapat dicocokkan secara aman dari token yang telah dikonsumsi; gunakan pemulihan ID tiket existing untuk enqueue. Tidak ada bypass QR, rekonstruksi token atau migration data historis. Jika bukti QR telah expired tetapi tiket sudah CHECK_IN, gunakan pemulihan tiket berwenang; QR baru hanya diterbitkan untuk DIPESAN sesuai kontrak lama.
 
+### Check-in manual tanpa QR (aditif)
+
+Untuk pasien tanpa HP atau tanpa QR. Keduanya hanya untuk **PETUGAS aktif** (JWT + RBAC) dan tidak mengubah `POST /check-in` maupun `POST /check-in/auto-antrean`.
+
+`POST /api/v1/check-in/cari-nomor` (read-only, `Cache-Control: no-store`):
+
+```json
+{"nomorAntrean":"A-025","loketId":"UUID v4 loket"}
+```
+
+Server mencari tiket pada **tanggal pelayanan hari ini** untuk layanan loket petugas itu. Prefix harus cocok dengan layanan loket; nomor selain itu menghasilkan 404. Respons tidak memuat nama lengkap, NIK, telepon, atau token:
+
+```json
+{
+  "tiketId": "uuid", "nomorAntrean": "A-025",
+  "layanan": {"id": "uuid", "nama": "Poli Umum"},
+  "tanggalPelayanan": "2026-11-10", "status": "DIPESAN",
+  "jenisAntrean": "ANTREAN_HARIAN", "namaPasien": "Budi S. W.",
+  "dapatCheckInManual": true, "alasan": null
+}
+```
+
+`namaPasien` disamarkan (nama depan + inisial) agar petugas hanya mencocokkan dengan pasien di depannya. `dapatCheckInManual=false` disertai `alasan` (sudah check-in, status akhir, bukan hari pelayanan, layanan nonaktif, ruang sesi dokter berbeda, atau di luar jam pelayanan).
+
+`POST /api/v1/check-in/manual`:
+
+```json
+{"tiketId":"UUID v4 tiket","loketId":"UUID v4 loket"}
+```
+
+Dalam satu transaksi Serializable: validasi penugasan aktif, layanan tiket sama dengan loket, tanggal hari ini, layanan aktif, konteks Hospital/ruang janji temu, dan jam pelayanan (aturan sama dengan check-in QR). Lalu update bersyarat `DIPESAN` (versi cocok, `checkInPada` kosong) menjadi `CHECK_IN`, token `SQ1` yang mungkin sudah terbit dicabut, audit `CHECK_IN` dengan `dataTambahan.metode = "MANUAL_NOMOR_ANTREAN"`, lalu `masukAntrean` sehingga status akhir `MENUNGGU` dan realtime `ENQUEUE` dikirim. Respons sama dengan `auto-antrean` (termasuk `namaPasien` dan `sudahTerdaftar`). Tiket yang sudah `CHECK_IN`/`MENUNGGU` tidak diproses ulang (idempoten); status akhir menghasilkan 409; kalah balapan menghasilkan 409. Error lain mengikuti bagian berikut (400/401/403/409).
+
+Nomor antrean bukan bukti kepemilikan. Verifikasi identitas dilakukan petugas (mencocokkan nama), dan setiap check-in manual tercatat atas nama petugas di audit trail.
+
 ### Error dan realtime
 
 - 400: format/token tidak valid, tanggal/jam/konteks Hospital tidak sesuai.
