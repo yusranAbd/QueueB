@@ -1,5 +1,5 @@
 import { ModeReservasi } from '../generated/prisma/client';
-import { pilihBerikutnyaHospital, urutkanKandidatHospital, type KandidatHospital } from './hospital-queue-selector';
+import { hitungDiDepanWalkIn, pilihBerikutnyaHospital, urutkanKandidatHospital, type KandidatHospital } from './hospital-queue-selector';
 
 const kini = new Date('2026-10-14T03:30:00Z');
 const loketA = 'loket-a';
@@ -148,5 +148,41 @@ describe('Hospital Queue Selector H3.3', () => {
     const data = Object.freeze([walkIn('walk'), janji('janji')]);
     expect(() => urutkanKandidatHospital(data, ModeReservasi.HIBRIDA, loketA, kini, true)).not.toThrow();
     expect(data[0]?.id).toBe('walk');
+  });
+});
+
+describe('hitungDiDepanWalkIn: posisi walk-in pada poli HIBRIDA', () => {
+  it('sendirian di antrean: tidak ada di depan', () => {
+    expect(hitungDiDepanWalkIn([walkIn('saya')], 'saya', kini)).toBe(0);
+  });
+  it('menghitung walk-in yang check-in lebih dulu, bukan yang lebih lambat', () => {
+    const data = [walkIn('d', '03:20', 4), walkIn('saya', '03:10', 3), walkIn('a', '03:00', 1), walkIn('b', '03:05', 2)];
+    expect(hitungDiDepanWalkIn(data, 'saya', kini)).toBe(2);
+  });
+  it('janji temu yang sudah layak mendahului walk-in, yang slotnya belum mulai tidak', () => {
+    const data = [walkIn('saya', '02:00', 1), janji('sedang', '03:00', '04:00', '03:10'), janji('nanti', '04:00', '05:00', '03:00')];
+    expect(hitungDiDepanWalkIn(data, 'saya', kini)).toBe(1);
+  });
+  it('janji temu di ruang lain tetap dinilai di ruang dokternya sendiri', () => {
+    const data = [walkIn('saya', '02:00', 1), janji('lain', '03:00', '04:00', '03:10', loketB)];
+    expect(hitungDiDepanWalkIn(data, 'saya', kini)).toBe(1);
+  });
+  it('walk-in yang REQUEUE dihitung setelah pasien yang check-in lebih baru', () => {
+    const ulang = walkIn('ulang', '02:00', 9);
+    ulang.peristiwaAntrean = [{ terjadiPada: waktu('03:25') }];
+    expect(hitungDiDepanWalkIn([ulang, walkIn('saya', '03:10', 2)], 'saya', kini)).toBe(0);
+    expect(hitungDiDepanWalkIn([ulang, walkIn('saya', '03:10', 2)], 'ulang', kini)).toBe(1);
+  });
+  it('null untuk tiket janji temu, belum check-in, atau tidak ada', () => {
+    const belum = walkIn('belum');
+    belum.checkInPada = null;
+    expect(hitungDiDepanWalkIn([janji('j')], 'j', kini)).toBeNull();
+    expect(hitungDiDepanWalkIn([belum], 'belum', kini)).toBeNull();
+    expect(hitungDiDepanWalkIn([walkIn('a')], 'tidak-ada', kini)).toBeNull();
+  });
+  it('tidak memutasi array dari ORM', () => {
+    const data = Object.freeze([walkIn('b', '03:10', 2), walkIn('a', '03:00', 1)]);
+    expect(hitungDiDepanWalkIn(data, 'b', kini)).toBe(1);
+    expect(data.map((x) => x.id)).toEqual(['b', 'a']);
   });
 });

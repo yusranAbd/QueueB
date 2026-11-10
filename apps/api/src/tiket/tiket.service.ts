@@ -12,6 +12,10 @@ import {
   StatusTiket,
 } from '../generated/prisma/client';
 import { waktuPelayanan } from '../hospital/hospital-context';
+import {
+  hitungDiDepanWalkIn,
+  PILIHAN_KANDIDAT_HOSPITAL,
+} from '../queue/hospital-queue-selector';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReservasiService } from '../reservasi/reservasi.service';
 
@@ -133,8 +137,11 @@ export class TiketService {
   /**
    * Owned-ticket read model only: daily queue rank uses the same service/day,
    * MENUNGGU membership and (urutanMasukAntrean, id) order as daily CALL.
-   * Hospital modes deliberately return no rank: their room/slot eligibility
-   * must not be approximated by a service-wide FIFO number.
+   * HIBRIDA walk-in tickets use the Hospital selector comparator (appointments
+   * that are already eligible go first, then walk-ins by check-in order).
+   * Appointment tickets (JANJI_TEMU_DOKTER or HIBRIDA with an appointment) return
+   * no rank: they are called by doctor slot and room, which a single number
+   * would misrepresent.
    */
   async dispatch(id: string, penggunaId: string): Promise<TiketDispatch> {
     const prisma = this.prisma;
@@ -156,6 +163,7 @@ export class TiketService {
             tanggalAntrean: true,
             checkInPada: true,
             urutanMasukAntrean: true,
+            janjiTemu: { select: { id: true } },
             layanan: {
               select: {
                 id: true,
@@ -239,7 +247,13 @@ export class TiketService {
           );
         }
 
-        if (ticket.layanan.modeReservasi !== ModeReservasi.ANTREAN_HARIAN) {
+        const walkInHibrida =
+          ticket.layanan.modeReservasi === ModeReservasi.HIBRIDA &&
+          ticket.janjiTemu === null;
+        if (
+          ticket.layanan.modeReservasi !== ModeReservasi.ANTREAN_HARIAN &&
+          !walkInHibrida
+        ) {
           result.alasanPosisi = 'MODE_ANTREAN_BELUM_DIDUKUNG';
         } else if (ticket.status !== StatusTiket.MENUNGGU) {
           result.alasanPosisi = 'STATUS_BUKAN_MENUNGGU';
@@ -289,21 +303,40 @@ export class TiketService {
             result.alasanPosisi = 'LOKET_PELAYANAN_BELUM_TERSEDIA';
             return result;
           }
-          const ahead = await tx.tiketAntrean.count({
-            where: {
-              layananId: ticket.layananId,
-              tanggalAntrean: today.tanggalDb,
-              status: StatusTiket.MENUNGGU,
-              urutanMasukAntrean: { not: null },
-              OR: [
-                { urutanMasukAntrean: { lt: ticket.urutanMasukAntrean } },
-                {
-                  urutanMasukAntrean: ticket.urutanMasukAntrean,
-                  id: { lt: ticket.id },
-                },
-              ],
-            },
-          });
+          let ahead: number | null;
+          if (walkInHibrida) {
+            const kandidat = await tx.tiketAntrean.findMany({
+              where: {
+                layananId: ticket.layananId,
+                tanggalAntrean: today.tanggalDb,
+                status: StatusTiket.MENUNGGU,
+                urutanMasukAntrean: { not: null },
+              },
+              select: PILIHAN_KANDIDAT_HOSPITAL,
+              orderBy: [{ urutanMasukAntrean: 'asc' }, { id: 'asc' }],
+            });
+            ahead = hitungDiDepanWalkIn(kandidat, ticket.id, now);
+            if (ahead === null) {
+              result.alasanPosisi = 'BELUM_MASUK_ANTREAN';
+              return result;
+            }
+          } else {
+            ahead = await tx.tiketAntrean.count({
+              where: {
+                layananId: ticket.layananId,
+                tanggalAntrean: today.tanggalDb,
+                status: StatusTiket.MENUNGGU,
+                urutanMasukAntrean: { not: null },
+                OR: [
+                  { urutanMasukAntrean: { lt: ticket.urutanMasukAntrean } },
+                  {
+                    urutanMasukAntrean: ticket.urutanMasukAntrean,
+                    id: { lt: ticket.id },
+                  },
+                ],
+              },
+            });
+          }
           result.posisiAntrean = ahead + 1;
           result.jumlahDiDepan = ahead;
         }

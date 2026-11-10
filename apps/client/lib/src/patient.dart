@@ -4134,6 +4134,10 @@ class _TicketDialogState extends State<_TicketDialog> {
             updatedLabel: verifiedDispatch == null
                 ? null
                 : _ticketClock(verifiedDispatch.observedAt),
+            reason: currentDispatch ? verifiedDispatch.reason : null,
+            hybrid:
+                currentDispatch &&
+                verifiedDispatch.reservationMode == 'HIBRIDA',
           ),
           if (state.dispatchError != null) ...[
             const SizedBox(height: 6),

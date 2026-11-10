@@ -1,5 +1,5 @@
 import { ModeReservasi } from '../generated/prisma/client';
-import { alasanPenerimaanHospital, type KonteksSlotHospital, type AlasanTidakLayakHospital } from '../hospital/hospital-context';
+import { alasanPenerimaanHospital, PILIH_JANJI_TEMU_HOSPITAL, type KonteksSlotHospital, type AlasanTidakLayakHospital } from '../hospital/hospital-context';
 
 /**
  * H3.3: selector murni tanpa operasi database.
@@ -114,6 +114,59 @@ export function bandingkanKandidatHospital<T extends KandidatHospital>(
   const urutanB = b.tiket.urutanMasukAntrean ?? Number.MAX_SAFE_INTEGER;
   if (urutanA !== urutanB) return urutanA - urutanB;
   return a.tiket.id.localeCompare(b.tiket.id);
+}
+
+/**
+ * Select bersama untuk CALL, daftar menunggu, snapshot, dan posisi pasien.
+ * Tidak membaca identitas pasien ataupun token QR.
+ */
+export const PILIHAN_KANDIDAT_HOSPITAL = {
+  id: true,
+  layananId: true,
+  tanggalAntrean: true,
+  nomorUrut: true,
+  status: true,
+  versi: true,
+  loketId: true,
+  urutanMasukAntrean: true,
+  masukAntreanPada: true,
+  checkInPada: true,
+  // Audit REQUEUE adalah bukti bahwa FIFO tidak lagi memakai CHECK_IN awal.
+  peristiwaAntrean: {
+    where: { tipe: 'REQUEUE' },
+    orderBy: { terjadiPada: 'desc' },
+    take: 1,
+    select: { terjadiPada: true },
+  },
+  janjiTemu: PILIH_JANJI_TEMU_HOSPITAL,
+} as const;
+
+/**
+ * Jumlah tiket MENUNGGU yang dipanggil lebih dulu daripada tiket walk-in target
+ * pada poli HIBRIDA, memakai comparator yang sama dengan CALL. Yang mendahului:
+ * janji temu yang sudah layak dipanggil di ruang dokternya (prioritas 0) dan
+ * walk-in dengan urutan lebih awal (prioritas 1). Mengembalikan null bila target
+ * bukan walk-in yang sudah check-in. Hanya perkiraan urutan, bukan janji waktu:
+ * kelayakan janji temu per ruang dan sesi walk-in dapat berubah.
+ */
+export function hitungDiDepanWalkIn<T extends KandidatHospital>(
+  kandidat: readonly T[],
+  tiketId: string,
+  sekarang: Date,
+): number | null {
+  const terurut = kandidat.map((tiket) => statusKandidat(
+    tiket,
+    ModeReservasi.HIBRIDA,
+    // Janji temu dinilai di ruang sesi dokternya sendiri.
+    tiket.janjiTemu?.slotPraktik.jadwalPraktik.loketId ?? '',
+    sekarang,
+    // Urutan walk-in tidak bergantung pada sesi yang kebetulan sedang berjalan.
+    true,
+  ));
+  const target = terurut.find((item) => item.tiket.id === tiketId);
+  if (!target || target.jenisAntrean !== 'WALK_IN' || !target.layakDipanggil) return null;
+  terurut.sort(bandingkanKandidatHospital);
+  return terurut.findIndex((item) => item.tiket.id === tiketId);
 }
 
 /** Slot mendatang, relasi nonaktif atau ruang lain tidak boleh di-CALL. */

@@ -20,7 +20,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeBroadcastService } from '../realtime/realtime-broadcast.service';
 import type { JenisPerubahanAntrean } from '../realtime/realtime-events.types';
 import type { SnapshotAntrean, SnapshotTiketAktif } from './queue-snapshot.types';
-import { pilihBerikutnyaHospital, urutkanKandidatHospital, type KandidatHospital } from './hospital-queue-selector';
+import {
+  PILIHAN_KANDIDAT_HOSPITAL,
+  pilihBerikutnyaHospital,
+  urutkanKandidatHospital,
+  type KandidatHospital,
+} from './hospital-queue-selector';
 import { alasanPenerimaanHospital, PILIH_JANJI_TEMU_HOSPITAL } from '../hospital/hospital-context';
 
 import {
@@ -39,29 +44,8 @@ const NAMA_HARI: HariLayanan[] = [
   HariLayanan.SABTU,
 ];
 
-// Prisma select bersama: dipakai pada CALL, daftar menunggu dan snapshot.
-// Tidak membaca identitas pasien ataupun token QR.
-const PILIHAN_HOSPITAL = {
-  id: true,
-  layananId: true,
-  tanggalAntrean: true,
-  nomorUrut: true,
-  status: true,
-  versi: true,
-  loketId: true,
-  urutanMasukAntrean: true,
-  masukAntreanPada: true,
-  checkInPada: true,
-  // Audit REQUEUE adalah bukti bahwa FIFO tidak lagi memakai CHECK_IN awal.
-  // Ketiga jalur Hospital membaca audit terbaru dengan select yang sama.
-  peristiwaAntrean: {
-    where: { tipe: 'REQUEUE' },
-    orderBy: { terjadiPada: 'desc' },
-    take: 1,
-    select: { terjadiPada: true },
-  },
-  janjiTemu: PILIH_JANJI_TEMU_HOSPITAL,
-} as const;
+// Select bersama didefinisikan di selector agar posisi pasien memakai sumber yang sama.
+const PILIHAN_HOSPITAL = PILIHAN_KANDIDAT_HOSPITAL;
 
 interface KonteksTanggal {
   tanggal: string;

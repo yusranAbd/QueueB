@@ -18,13 +18,27 @@ class PatientTicketDispatchPanel extends StatelessWidget {
     this.failed = false,
     this.live = false,
     this.updatedLabel,
+    this.reason,
+    this.hybrid = false,
   });
 
   final int? position, ahead;
   final List<PatientServingNumber> serving;
   final String checkInLabel;
-  final bool checkInVerified, loading, failed, live;
+  final bool checkInVerified, loading, failed, live, hybrid;
   final String? updatedLabel;
+
+  /// `alasanPosisi` dari server; hanya menjelaskan mengapa angka kosong.
+  final String? reason;
+
+  static String unavailableCaption(String? reason) => switch (reason) {
+    'MODE_ANTREAN_BELUM_DIDUKUNG' =>
+      'Janji temu dipanggil sesuai jam dan ruang dokter',
+    'LOKET_PELAYANAN_BELUM_TERSEDIA' => 'Belum ada loket yang bertugas',
+    'JADWAL_LAYANAN_TIDAK_AKTIF' => 'Layanan tidak beroperasi hari ini',
+    'BELUM_MASUK_ANTREAN' => 'Belum masuk antrean',
+    _ => 'Posisi belum tersedia',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -128,12 +142,14 @@ class PatientTicketDispatchPanel extends StatelessWidget {
               label: 'URUTAN ANDA',
               count: actualPosition,
               caption: 'Giliran panggilan',
+              unavailable: unavailableCaption(reason),
               primary: true,
             );
             final before = _DispatchCountCard(
               label: 'DI DEPAN ANDA',
               count: actualAhead,
               caption: 'Orang menunggu',
+              unavailable: unavailableCaption(reason),
             );
             if (bounds.maxWidth < 280 ||
                 MediaQuery.textScalerOf(context).scale(12) > 17) {
@@ -204,20 +220,21 @@ class PatientTicketDispatchPanel extends StatelessWidget {
                 .withValues(alpha: .55),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Row(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
+              const Icon(
                 Icons.info_outline_rounded,
                 size: 14,
                 color: PatientDesign.warning,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Urutan mengikuti antrean setelah check-in, bukan nomor tiket. '
-                  'Posisi dapat berubah sesuai kondisi antrean.',
-                  style: TextStyle(
+                  'Posisi dapat berubah sesuai kondisi antrean.'
+                  '${hybrid && actualPosition != null ? ' Janji temu dokter yang sudah dimulai dapat dipanggil lebih dulu.' : ''}',
+                  style: const TextStyle(
                     fontSize: 11,
                     height: 1.35,
                     color: PatientDesign.warning,
@@ -237,10 +254,11 @@ class _DispatchCountCard extends StatelessWidget {
     required this.label,
     required this.count,
     required this.caption,
+    required this.unavailable,
     this.primary = false,
   });
 
-  final String label, caption;
+  final String label, caption, unavailable;
   final int? count;
   final bool primary;
 
@@ -281,7 +299,7 @@ class _DispatchCountCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            count == null ? 'Posisi belum tersedia' : caption,
+            count == null ? unavailable : caption,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, height: 1.3, color: ink),
           ),
