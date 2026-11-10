@@ -172,6 +172,48 @@ class StaffQueueRepository extends ChangeNotifier {
     }
   }
 
+  /// Read-only: cari tiket hari ini pada layanan loket berdasarkan nomor antrean.
+  Future<Json> lookupTicketByNumber(String room, String number) async {
+    check();
+    final result = staffObject(
+      await api.request(
+        'POST',
+        '/check-in/cari-nomor',
+        body: {'loketId': room, 'nomorAntrean': number},
+      ),
+    );
+    if (result['tiketId'] is! String ||
+        '${result['tiketId']}'.isEmpty ||
+        result['nomorAntrean'] is! String ||
+        result['status'] is! String ||
+        result['dapatCheckInManual'] is! bool) {
+      throw const ApiException(0, 'Hasil pencarian belum terverifikasi.');
+    }
+    return result;
+  }
+
+  /// Check-in tanpa QR oleh petugas, lalu pasien langsung masuk antrean.
+  Future<Json> manualCheckIn(String room, String ticketId) async {
+    check();
+    if (_writing) throw const ApiException(409, 'Tunggu proses sebelumnya.');
+    _writing = true;
+    try {
+      final result = staffObject(
+        await api.request(
+          'POST',
+          '/check-in/manual',
+          body: {'loketId': room, 'tiketId': ticketId},
+        ),
+      );
+      if (result['tiketId'] != ticketId || result['status'] != 'MENUNGGU') {
+        throw const ApiException(0, 'Hasil check-in belum terverifikasi.');
+      }
+      return result;
+    } finally {
+      _writing = false;
+    }
+  }
+
   @override
   void dispose() {
     if (_disposed) return;

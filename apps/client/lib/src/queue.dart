@@ -11,6 +11,7 @@ import 'features/staff/application/staff_queue_event.dart';
 import 'features/staff/application/staff_queue_state.dart';
 import 'features/staff/data/staff_queue_repository.dart';
 import 'features/staff/models/staff_queue_models.dart';
+import 'staff_manual_check_in.dart';
 import 'staff_qr_scanner.dart';
 import 'mobile_ui.dart';
 import 'staff_ui.dart';
@@ -93,6 +94,28 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
       context: context,
       barrierDismissible: false,
       builder: (_) => StaffQrScanner(onScan: submitQr),
+    );
+    _scanRoute = route;
+    _scannerNavigator = navigator;
+    try {
+      await navigator.push(route);
+    } finally {
+      if (identical(_scanRoute, route)) _scanRoute = null;
+    }
+  }
+
+  Future<void> manualCheckIn() async {
+    final room = roomId;
+    if (room == null) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => StaffManualCheckIn(
+        lookup: (number) => repository.lookupTicketByNumber(room, number),
+        checkIn: (ticketId) => repository.manualCheckIn(room, ticketId),
+        onCheckedIn: () => unawaited(bloc.refresh()),
+      ),
     );
     _scanRoute = route;
     _scannerNavigator = navigator;
@@ -820,17 +843,50 @@ class _QueuePageState extends State<QueuePage> with WidgetsBindingObserver {
                   icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
                   label: const Text('Pindai QR'),
                 );
-                return box.maxWidth >= 400
+                final manual = OutlinedButton.icon(
+                  key: const ValueKey('staff-manual-button'),
+                  onPressed: busy || loading || snapshot == null
+                      ? null
+                      : manualCheckIn,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: StaffStyle.soft,
+                    foregroundColor: StaffStyle.ink,
+                    minimumSize: const Size(44, 42),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    textStyle: TextStyle(
+                      fontSize: compact ? 12 : 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_search_rounded, size: 20),
+                  label: const Text('Tanpa QR'),
+                );
+                return box.maxWidth >= 520
                     ? Row(
                         children: [
                           Expanded(child: field),
                           const SizedBox(width: 10),
                           qr,
+                          const SizedBox(width: 8),
+                          manual,
                         ],
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [field, const SizedBox(height: 8), qr],
+                        children: [
+                          field,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: qr),
+                              const SizedBox(width: 8),
+                              Expanded(child: manual),
+                            ],
+                          ),
+                        ],
                       );
               },
             ),

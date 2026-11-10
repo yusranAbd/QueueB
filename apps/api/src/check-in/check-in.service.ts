@@ -12,6 +12,8 @@ import {
 import { HariLayanan, Prisma, StatusTiket } from '../generated/prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { CariTiketNomorDto } from './dto/cari-tiket-nomor.dto';
+import { CheckInManualDto } from './dto/check-in-manual.dto';
 import { ProsesCheckInDto } from './dto/proses-check-in.dto';
 import { VerifikasiBuktiReservasiDto } from './dto/verifikasi-bukti-reservasi.dto';
 import {
@@ -37,11 +39,20 @@ export class CheckInService {
    * Pembacaan bukti reservasi QBR1 untuk loket petugas yang ditugaskan.
    * TIDAK menerbitkan SQ1, mengubah status tiket, ataupun melakukan check-in.
    */
-  async verifikasiBuktiReservasi(dto: VerifikasiBuktiReservasiDto, petugasId: string) {
+  async verifikasiBuktiReservasi(
+    dto: VerifikasiBuktiReservasiDto,
+    petugasId: string,
+  ) {
     const match = /^QBR1\.(TK[A-F0-9]{24})$/.exec(dto.qrPayload ?? '');
-    if (!match ||
-        !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(dto.loketId ?? '')) {
-      throw new BadRequestException('Format QR bukti reservasi atau loket tidak valid');
+    if (
+      !match ||
+      !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+        dto.loketId ?? '',
+      )
+    ) {
+      throw new BadRequestException(
+        'Format QR bukti reservasi atau loket tidak valid',
+      );
     }
 
     const waktu = this.dapatkanWaktuPelayanan(new Date());
@@ -83,16 +94,22 @@ export class CheckInService {
         },
       },
     });
-    if (!penugasan ||
-        !penugasan.loket.aktif ||
-        !penugasan.loket.layanan.aktif ||
-        penugasan.loket.layananId !== tiket.layananId) {
-      throw new ForbiddenException('Tidak berwenang memverifikasi tiket untuk layanan ini');
+    if (
+      !penugasan ||
+      !penugasan.loket.aktif ||
+      !penugasan.loket.layanan.aktif ||
+      penugasan.loket.layananId !== tiket.layananId
+    ) {
+      throw new ForbiddenException(
+        'Tidak berwenang memverifikasi tiket untuk layanan ini',
+      );
     }
 
     const tanggal = tiket.tanggalAntrean.toISOString().slice(0, 10);
-    const dapatDiverifikasi = tiket.status === StatusTiket.DIPESAN &&
-      tiket.layanan.aktif && tanggal >= waktu.tanggal;
+    const dapatDiverifikasi =
+      tiket.status === StatusTiket.DIPESAN &&
+      tiket.layanan.aktif &&
+      tanggal >= waktu.tanggal;
     const hariPelayanan = tanggal === waktu.tanggal;
     return {
       jenis: 'BUKTI_RESERVASI',
@@ -113,6 +130,307 @@ export class CheckInService {
           ? 'Bukti sesuai tanggal pelayanan. Check-in tetap memerlukan QR aktif SQ1'
           : 'Bukti reservasi terverifikasi. Check-in baru dapat dilakukan pada hari pelayanan',
     };
+  }
+
+  // ==========================================
+  // PENCARIAN DAN CHECK-IN MANUAL (TANPA QR)
+  // ==========================================
+
+  /**
+   * Read-only. Mencari tiket hari ini pada layanan loket petugas berdasarkan
+   * nomor antrean. Nama pasien disamarkan agar petugas hanya mencocokkan.
+   */
+  async cariTiketNomor(dto: CariTiketNomorDto, petugasId: string) {
+    const match = /^([A-Z0-9]{1,5})-(\d{1,6})$/.exec(
+      (dto.nomorAntrean ?? '').trim().toUpperCase(),
+    );
+    if (!match)
+      throw new BadRequestException('Format nomor antrean tidak valid');
+    const sekarang = new Date();
+    const waktu = this.dapatkanWaktuPelayanan(sekarang);
+    const loket = await this.ambilPenugasanLoket(
+      this.prisma,
+      petugasId,
+      dto.loketId,
+      waktu.tanggalDb,
+    );
+
+    const tiket = await this.prisma.tiketAntrean.findFirst({
+      where: {
+        layananId: loket.layananId,
+        tanggalAntrean: waktu.tanggalDb,
+        nomorUrut: Number(match[2]),
+      },
+      select: this.pilihanTiketManual,
+    });
+    if (
+      !tiket ||
+      tiket.layanan.prefixAntrean.trim().toUpperCase() !== match[1]
+    ) {
+      throw new NotFoundException(
+        'Tiket dengan nomor antrean ini tidak ditemukan hari ini',
+      );
+    }
+
+    const alasan = await this.alasanTidakBisaManual(
+      this.prisma,
+      tiket,
+      dto.loketId,
+      waktu,
+      sekarang,
+    );
+    return {
+      tiketId: tiket.id,
+      nomorAntrean: this.formatNomor(
+        tiket.layanan.prefixAntrean,
+        tiket.nomorUrut,
+      ),
+      layanan: { id: tiket.layananId, nama: tiket.layanan.nama },
+      tanggalPelayanan: waktu.tanggal,
+      status: tiket.status,
+      jenisAntrean: tiket.janjiTemu ? 'JANJI_TEMU' : 'ANTREAN_HARIAN',
+      namaPasien: this.samarkanNama(tiket.pengguna.nama),
+      dapatCheckInManual: alasan === null,
+      alasan,
+    };
+  }
+
+  /** Check-in tanpa QR oleh petugas. Dipanggil dalam transaksi Serializable. */
+  async checkInManualDalamTransaksi(
+    tx: Prisma.TransactionClient,
+    dto: CheckInManualDto,
+    petugasId: string,
+    sekarang: Date,
+  ) {
+    const waktu = this.dapatkanWaktuPelayanan(sekarang);
+    const loket = await this.ambilPenugasanLoket(
+      tx,
+      petugasId,
+      dto.loketId,
+      waktu.tanggalDb,
+    );
+    const tiket = await tx.tiketAntrean.findUnique({
+      where: { id: dto.tiketId },
+      select: this.pilihanTiketManual,
+    });
+    if (!tiket) throw new NotFoundException('Tiket antrean tidak ditemukan');
+    if (tiket.layananId !== loket.layananId) {
+      throw new ForbiddenException(
+        'Petugas tidak memiliki penugasan aktif pada loket layanan ini',
+      );
+    }
+
+    const hasil = (status: StatusTiket, checkInPada: Date) => ({
+      tiketId: tiket.id,
+      layananId: tiket.layananId,
+      nomorAntrean: this.formatNomor(
+        tiket.layanan.prefixAntrean,
+        tiket.nomorUrut,
+      ),
+      status,
+      checkInPada: checkInPada.toISOString(),
+      loketId: dto.loketId,
+      petugasId,
+    });
+
+    // Idempotent seperti alur QR: tiket yang sudah check-in tidak diproses ulang.
+    if (tiket.status !== StatusTiket.DIPESAN) {
+      if (
+        (tiket.status === StatusTiket.CHECK_IN ||
+          tiket.status === StatusTiket.MENUNGGU) &&
+        tiket.checkInPada
+      ) {
+        return hasil(tiket.status, tiket.checkInPada);
+      }
+      throw new ConflictException('Tiket sudah diproses sebelumnya');
+    }
+
+    const alasan = await this.alasanTidakBisaManual(
+      tx,
+      tiket,
+      dto.loketId,
+      waktu,
+      sekarang,
+    );
+    if (alasan) {
+      throw alasan.startsWith('Appointment harus')
+        ? new ForbiddenException(alasan)
+        : new BadRequestException(alasan);
+    }
+
+    const diubah = await tx.tiketAntrean.updateMany({
+      where: {
+        id: tiket.id,
+        status: StatusTiket.DIPESAN,
+        versi: tiket.versi,
+        checkInPada: null,
+      },
+      data: {
+        status: StatusTiket.CHECK_IN,
+        checkInPada: sekarang,
+        loketId: dto.loketId,
+        // Token SQ1 yang mungkin sudah terbit ikut dicabut.
+        tokenQrHash: null,
+        qrKedaluwarsaPada: null,
+        versi: { increment: 1 },
+      },
+    });
+    if (diubah.count !== 1) {
+      throw new ConflictException('Tiket sedang diproses atau sudah check-in');
+    }
+
+    await tx.peristiwaAntrean.create({
+      data: {
+        tiketAntreanId: tiket.id,
+        aktorId: petugasId,
+        tipe: 'CHECK_IN',
+        statusSebelum: StatusTiket.DIPESAN,
+        statusSesudah: StatusTiket.CHECK_IN,
+        dataTambahan: {
+          metode: 'MANUAL_NOMOR_ANTREAN',
+          loketId: dto.loketId,
+          penugasanId: loket.penugasanId,
+        },
+      },
+    });
+    return hasil(StatusTiket.CHECK_IN, sekarang);
+  }
+
+  private readonly pilihanTiketManual = {
+    id: true,
+    layananId: true,
+    tanggalAntrean: true,
+    nomorUrut: true,
+    status: true,
+    versi: true,
+    checkInPada: true,
+    janjiTemu: PILIH_JANJI_TEMU_HOSPITAL,
+    pengguna: { select: { nama: true } },
+    layanan: {
+      select: {
+        nama: true,
+        aktif: true,
+        prefixAntrean: true,
+        modeReservasi: true,
+      },
+    },
+  } as const;
+
+  /** Penugasan aktif petugas pada loket, yang loket dan layanannya aktif. */
+  private async ambilPenugasanLoket(
+    db: Pick<Prisma.TransactionClient, 'penugasanPetugas'>,
+    petugasId: string,
+    loketId: string,
+    tanggalDb: Date,
+  ) {
+    const penugasan = await db.penugasanPetugas.findFirst({
+      where: {
+        petugasId,
+        loketId,
+        aktif: true,
+        tanggalMulai: { lte: tanggalDb },
+        OR: [{ tanggalSelesai: null }, { tanggalSelesai: { gte: tanggalDb } }],
+      },
+      select: {
+        id: true,
+        loket: {
+          select: {
+            aktif: true,
+            layananId: true,
+            layanan: { select: { aktif: true } },
+          },
+        },
+      },
+    });
+    if (
+      !penugasan ||
+      !penugasan.loket.aktif ||
+      !penugasan.loket.layanan.aktif
+    ) {
+      throw new ForbiddenException(
+        'Petugas tidak memiliki penugasan aktif pada loket layanan ini',
+      );
+    }
+    return { penugasanId: penugasan.id, layananId: penugasan.loket.layananId };
+  }
+
+  /** Teks alasan bila check-in manual belum boleh dilakukan; null jika boleh. */
+  private async alasanTidakBisaManual(
+    db: Pick<Prisma.TransactionClient, 'jadwalLayanan'>,
+    tiket: {
+      layananId: string;
+      tanggalAntrean: Date;
+      status: StatusTiket;
+      janjiTemu: Parameters<typeof alasanPenerimaanHospital>[0]['janjiTemu'];
+      layanan: {
+        aktif: boolean;
+        modeReservasi: Parameters<
+          typeof alasanPenerimaanHospital
+        >[0]['modeReservasi'];
+      };
+    },
+    loketId: string,
+    waktu: ReturnType<CheckInService['dapatkanWaktuPelayanan']>,
+    sekarang: Date,
+  ): Promise<string | null> {
+    if (
+      tiket.status === StatusTiket.CHECK_IN ||
+      tiket.status === StatusTiket.MENUNGGU
+    ) {
+      return 'Pasien sudah check-in';
+    }
+    if (tiket.status !== StatusTiket.DIPESAN) {
+      return `Tiket berstatus ${tiket.status} dan tidak dapat check-in`;
+    }
+    if (tiket.tanggalAntrean.toISOString().slice(0, 10) !== waktu.tanggal) {
+      return 'Check-in hanya dapat dilakukan pada tanggal pelayanan';
+    }
+    if (!tiket.layanan.aktif) return 'Layanan sedang tidak aktif';
+
+    const alasan = alasanPenerimaanHospital(
+      { ...tiket, modeReservasi: tiket.layanan.modeReservasi },
+      loketId,
+      sekarang,
+    );
+    if (alasan === 'RUANG_BERBEDA') {
+      return 'Appointment harus check-in pada ruang sesi dokter';
+    }
+    if (alasan) return `Konteks Hospital tidak valid: ${alasan}`;
+
+    const jadwal = await db.jadwalLayanan.findUnique({
+      where: {
+        layananId_hari: { layananId: tiket.layananId, hari: waktu.hari },
+      },
+      select: { aktif: true, jamBuka: true, jamTutup: true },
+    });
+    if (!jadwal || !jadwal.aktif)
+      return 'Tidak ada jadwal pelayanan aktif hari ini';
+    const jamBuka = jadwal.jamBuka.toISOString().slice(11, 19);
+    const jamTutup = jadwal.jamTutup.toISOString().slice(11, 19);
+    if (waktu.jam < jamBuka || waktu.jam >= jamTutup) {
+      return 'Check-in berada di luar jam pelayanan';
+    }
+    return null;
+  }
+
+  private formatNomor(prefix: string, nomorUrut: number): string {
+    return `${prefix.trim()}-${String(nomorUrut).padStart(3, '0')}`;
+  }
+
+  /** "Budi Santoso" menjadi "Budi S."; tetap tampil untuk mencocokkan pasien. */
+  private samarkanNama(nama: string | null | undefined): string {
+    const bagian =
+      nama
+        ?.replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+        .trim()
+        .split(/\s+/u)
+        .filter(Boolean) ?? [];
+    if (!bagian.length) return '—';
+    if (bagian.length === 1) return bagian[0];
+    return `${bagian[0]} ${bagian
+      .slice(1)
+      .map((b) => `${Array.from(b)[0]}.`)
+      .join(' ')}`;
   }
 
   // ==========================================

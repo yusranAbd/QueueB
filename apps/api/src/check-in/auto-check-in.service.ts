@@ -9,7 +9,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { QueueService } from '../queue/queue.service';
 import { RealtimeBroadcastService } from '../realtime/realtime-broadcast.service';
 import { CheckInService } from './check-in.service';
+import { CheckInManualDto } from './dto/check-in-manual.dto';
 import { ProsesCheckInDto } from './dto/proses-check-in.dto';
+
+type LangkahCheckIn = (
+  tx: Prisma.TransactionClient,
+  sekarang: Date,
+) => Promise<{
+  tiketId: string;
+  layananId: string;
+  nomorAntrean: string;
+  status: StatusTiket;
+  checkInPada: string;
+  loketId: string;
+  petugasId: string;
+}>;
 
 @Injectable()
 export class AutoCheckInService {
@@ -21,7 +35,25 @@ export class AutoCheckInService {
     private readonly realtime: RealtimeBroadcastService,
   ) {}
 
-  async proses(dto: ProsesCheckInDto, petugasId: string) {
+  /** Check-in dari QR SQ1, lalu langsung masuk antrean. */
+  proses(dto: ProsesCheckInDto, petugasId: string) {
+    return this.jalankan(dto.loketId, petugasId, (tx, sekarang) =>
+      this.checkIn.prosesDalamTransaksi(tx, dto, petugasId, sekarang, true),
+    );
+  }
+
+  /** Check-in manual oleh petugas (tanpa QR), lalu langsung masuk antrean. */
+  prosesManual(dto: CheckInManualDto, petugasId: string) {
+    return this.jalankan(dto.loketId, petugasId, (tx, sekarang) =>
+      this.checkIn.checkInManualDalamTransaksi(tx, dto, petugasId, sekarang),
+    );
+  }
+
+  private async jalankan(
+    loketId: string,
+    petugasId: string,
+    langkahCheckIn: LangkahCheckIn,
+  ) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const hasil = await this.prisma.$transaction(
@@ -34,20 +66,14 @@ export class AutoCheckInService {
             if (!petugas?.aktif || petugas.peran !== PeranPengguna.PETUGAS) {
               throw new ForbiddenException('Pengguna bukan PETUGAS aktif');
             }
-            const checkIn = await this.checkIn.prosesDalamTransaksi(
-              tx,
-              dto,
-              petugasId,
-              sekarang,
-              true,
-            );
+            const checkIn = await langkahCheckIn(tx, sekarang);
             const sudahTerdaftar = checkIn.status === StatusTiket.MENUNGGU;
             if (!sudahTerdaftar) {
               await this.queue.masukAntreanDalamTransaksi(
                 tx,
                 checkIn.tiketId,
                 petugasId,
-                dto.loketId,
+                loketId,
                 sekarang,
               );
             }

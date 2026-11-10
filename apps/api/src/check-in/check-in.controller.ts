@@ -20,6 +20,8 @@ import { PeranPengguna } from '../generated/prisma/client';
 
 import { AutoCheckInService } from './auto-check-in.service';
 import { CheckInService } from './check-in.service';
+import { CariTiketNomorDto } from './dto/cari-tiket-nomor.dto';
+import { CheckInManualDto } from './dto/check-in-manual.dto';
 import { ProsesCheckInDto } from './dto/proses-check-in.dto';
 import { VerifikasiBuktiReservasiDto } from './dto/verifikasi-bukti-reservasi.dto';
 
@@ -27,7 +29,10 @@ import { VerifikasiBuktiReservasiDto } from './dto/verifikasi-bukti-reservasi.dt
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(PeranPengguna.PETUGAS)
 export class CheckInController {
-  constructor(private readonly checkInService: CheckInService, private readonly autoCheckIn: AutoCheckInService) {}
+  constructor(
+    private readonly checkInService: CheckInService,
+    private readonly autoCheckIn: AutoCheckInService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.OK)
@@ -50,8 +55,31 @@ export class CheckInController {
 
   @Post('auto-antrean')
   @HttpCode(HttpStatus.OK)
-  otomatis(@Body() dto: ProsesCheckInDto, @CurrentUser() user: AuthenticatedUser) {
+  otomatis(
+    @Body() dto: ProsesCheckInDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     return this.autoCheckIn.proses(dto, user.id);
   }
 
+  /** Read-only. Cari tiket hari ini berdasarkan nomor antrean (pasien tanpa QR). */
+  @Post('cari-nomor')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  cariNomor(
+    @Body() dto: CariTiketNomorDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.checkInService.cariTiketNomor(dto, user.id);
+  }
+
+  /** Check-in manual oleh petugas setelah mencocokkan pasien. Tercatat di audit. */
+  @Post('manual')
+  @HttpCode(HttpStatus.OK)
+  manual(
+    @Body() dto: CheckInManualDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.autoCheckIn.prosesManual(dto, user.id);
+  }
 }
