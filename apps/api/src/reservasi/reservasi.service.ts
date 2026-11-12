@@ -95,10 +95,15 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
    * Bersihkan tiket lampau dengan transaksi per batch: perubahan status dan
    * PeristiwaAntrean selalu commit/rollback bersama.
    *
+   * Hanya dipanggil oleh scheduler modul ini. Jalur GET daftar/detail tiket
+   * sengaja tidak memicu penulisan agar pembacaan tetap aman dan ringan.
+   *
    * DIPANGGIL/DILAYANI sengaja tidak diubah, karena membutuhkan penyelesaian
    * operasional oleh petugas. DILEWATI pada hari berjalan (SKIP) tetap sah.
+   * Event bertipe AUTO_EXPIRE membuat trigger notifikasi memakai pesan
+   * kedaluwarsa, bukan pesan nomor dilewati petugas.
    */
-  private async kedaluwarsakanTiketLampau(penggunaId?: string): Promise<number> {
+  private async kedaluwarsakanTiketLampau(): Promise<number> {
     const batas = new Date(`${this.tanggalHariIniLokal()}T00:00:00.000Z`);
     const statusAktif = [
       StatusTiket.DIPESAN,
@@ -113,7 +118,6 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
         async (tx) => {
           const kandidat = await tx.tiketAntrean.findMany({
             where: {
-              ...(penggunaId ? { penggunaId } : {}),
               tanggalAntrean: { lt: batas },
               status: { in: statusAktif },
             },
@@ -128,7 +132,7 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
           });
           let diubah = 0;
           for (const tiket of kandidat) {
-            // Compare-and-swap mencegah cron/read API menimpa aksi lain.
+            // Compare-and-swap mencegah scheduler menimpa aksi lain.
             const perubahan = await tx.tiketAntrean.updateMany({
               where: {
                 id: tiket.id,
@@ -178,7 +182,7 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
       if (hasil.dibaca < ukuranBatch) break;
     }
 
-    if (jumlahTotal > 0 && !penggunaId) {
+    if (jumlahTotal > 0) {
       this.logger.log(`${jumlahTotal} tiket lampau ditandai DILEWATI`);
     }
     return jumlahTotal;
@@ -385,9 +389,9 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
   // READ RESERVASI MILIK PENGGUNA
   // ==========================================
 
+  // Pembacaan bersifat read-only. Tiket lampau ditertibkan oleh scheduler,
+  // sehingga status yang dikembalikan selalu status tersimpan di database.
   async findAll(penggunaId: string) {
-    // Pembacaan pasien juga menertibkan tiket miliknya tanpa menunggu cron.
-    await this.kedaluwarsakanTiketLampau(penggunaId);
     return this.prisma.tiketAntrean.findMany({
       where: {
         penggunaId,
@@ -398,7 +402,6 @@ export class ReservasiService implements OnModuleInit, OnModuleDestroy {
   }
 
   async findOne(id: string, penggunaId: string) {
-    await this.kedaluwarsakanTiketLampau(penggunaId);
     const tiket = await this.prisma.tiketAntrean.findFirst({
       where: {
         id,

@@ -2115,6 +2115,14 @@ Kebijakan ini menyediakan pembatalan manual beralasan setelah koordinasi tindak 
 
 Trigger PostgreSQL sesudah INSERT peristiwa_antrean menulis notifikasi dalam transaksi yang sama, dengan peristiwa_antrean_id unik sebagai kunci deduplikasi. Reservasi harian juga menulis audit RESERVATION_BOOK. Peristiwa reservasi, check-in, masuk antrean, CALL/RECALL, mulai/selesai pelayanan, SKIP dan pembatalan menghasilkan pesan sesuai status tersimpan. Status sama diabaikan kecuali RECALL. Rollback tidak menerbitkan notifikasi; event socket bukan sumber pembuatan pesan. Tidak ada backfill/pesan historis atau estimasi waktu panggilan.
 
+### Kedaluwarsa tiket lampau — 12 November 2026
+
+Scheduler `ReservasiService` (saat modul diinisialisasi, lalu setiap 60 detik) menandai tiket dengan `tanggalAntrean` sebelum hari pelayanan SERVICE_TIME_ZONE dan status `DIPESAN`/`CHECK_IN`/`MENUNGGU` menjadi `DILEWATI`. Perubahan memakai compare-and-swap status/versi, menaikkan `versi`, mengosongkan `tokenQrHash`/`qrKedaluwarsaPada`, dan mencatat peristiwa `AUTO_EXPIRE` (`aktorId: null`, `dataTambahan.metode: AUTO_EXPIRE_DATE`, `alasan: TANGGAL_PELAYANAN_TERLEWAT`) dalam transaksi yang sama. `DIPANGGIL`/`DILAYANI` tidak diubah karena menunggu penyelesaian petugas; status terminal juga tidak diubah. Tidak ada enum status baru.
+
+`GET /tiket/saya`, `GET /tiket/:id`, `GET /reservasi` dan `GET /reservasi/:id` bersifat read-only dan mengembalikan status tersimpan. Tiket lampau dapat masih terbaca dengan status lamanya sampai siklus scheduler berikutnya (maksimal sekitar 60 detik setelah pergantian hari, atau sesudah API kembali berjalan). Klien tidak boleh memakai GET untuk memicu kedaluwarsa.
+
+Trigger notifikasi membedakan sumber `DILEWATI`: peristiwa `AUTO_EXPIRE` menghasilkan judul **Tiket kedaluwarsa** dengan pesan bahwa tanggal pelayanan sudah berlalu dan pasien dapat membuat reservasi baru, sedangkan SKIP oleh petugas tetap **Nomor antrean dilewati** dengan arahan menghubungi petugas. Jenis notifikasi keduanya tetap `PERUBAHAN_STATUS`. Notifikasi yang sudah terbit sebelum migration `20261112_notifikasi_tiket_kedaluwarsa` tidak ditulis ulang.
+
 Tombol notifikasi Beranda memakai inbox ini dan feed pasien existing, termasuk invalidasi TIKET, polling fallback dan resume. Ini notifikasi dalam aplikasi, bukan push ketika aplikasi ditutup. Setiap pembacaan memeriksa scope akun; hasil request lama dan dialog dibersihkan saat sesi berubah.
 
 ### Laporan ADMIN

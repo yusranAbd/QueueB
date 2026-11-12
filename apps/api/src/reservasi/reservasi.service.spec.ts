@@ -102,6 +102,9 @@ function buatTransactionMock() {
       count: jest.fn(),
       create: jest.fn(),
     },
+    peristiwaAntrean: {
+      create: jest.fn(),
+    },
   };
 }
 
@@ -585,6 +588,112 @@ describe('ReservasiService', () => {
         },
         select: expect.any(Object),
       });
+    });
+
+    it('GET daftar dan detail tidak membuka transaksi atau mengubah tiket', async () => {
+      await service.findAll(penggunaId);
+      await service.findOne(tiketId, penggunaId);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(txMock.tiketAntrean.updateMany).not.toHaveBeenCalled();
+      expect(txMock.peristiwaAntrean.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ========================================
+  // E. SCHEDULER TIKET KEDALUWARSA
+  // ========================================
+
+  describe('Scheduler tiket kedaluwarsa', () => {
+    const tanggalLampau = new Date('2020-01-02T00:00:00.000Z');
+    const jalankanScheduler = () =>
+      (
+        service as unknown as {
+          kedaluwarsakanTiketLampau(): Promise<number>;
+        }
+      ).kedaluwarsakanTiketLampau();
+
+    it('menandai tiket lampau aktif sebagai DILEWATI dengan event AUTO_EXPIRE', async () => {
+      txMock.tiketAntrean.findMany.mockResolvedValueOnce([
+        {
+          id: tiketId,
+          tanggalAntrean: tanggalLampau,
+          status: StatusTiket.MENUNGGU,
+          versi: 3,
+        },
+      ]);
+      txMock.tiketAntrean.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await expect(jalankanScheduler()).resolves.toBe(1);
+
+      const kriteria = txMock.tiketAntrean.findMany.mock.calls[0][0];
+      // Scheduler global: tidak dibatasi pemilik tiket, hanya status pra-panggil.
+      expect(kriteria.where).not.toHaveProperty('penggunaId');
+      expect(kriteria.where.status).toEqual({
+        in: [StatusTiket.DIPESAN, StatusTiket.CHECK_IN, StatusTiket.MENUNGGU],
+      });
+
+      expect(txMock.tiketAntrean.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: tiketId,
+          status: StatusTiket.MENUNGGU,
+          versi: 3,
+        }),
+        data: {
+          status: StatusTiket.DILEWATI,
+          versi: { increment: 1 },
+          tokenQrHash: null,
+          qrKedaluwarsaPada: null,
+        },
+      });
+      expect(txMock.peristiwaAntrean.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tiketAntreanId: tiketId,
+          aktorId: null,
+          tipe: 'AUTO_EXPIRE',
+          statusSebelum: StatusTiket.MENUNGGU,
+          statusSesudah: StatusTiket.DILEWATI,
+          dataTambahan: expect.objectContaining({
+            metode: 'AUTO_EXPIRE_DATE',
+            alasan: 'TANGGAL_PELAYANAN_TERLEWAT',
+            tanggalPelayanan: '2020-01-02',
+          }),
+        }),
+      });
+    });
+
+    it('tidak menulis event bila tiket sudah diubah aksi lain (CAS gagal)', async () => {
+      txMock.tiketAntrean.findMany.mockResolvedValueOnce([
+        {
+          id: tiketId,
+          tanggalAntrean: tanggalLampau,
+          status: StatusTiket.DIPESAN,
+          versi: 1,
+        },
+      ]);
+      txMock.tiketAntrean.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(jalankanScheduler()).resolves.toBe(0);
+      expect(txMock.peristiwaAntrean.create).not.toHaveBeenCalled();
+    });
+
+    it('dijalankan saat modul diinisialisasi dan dihentikan saat modul dihancurkan', async () => {
+      jest.useFakeTimers();
+      try {
+        service.onModuleInit();
+        await Promise.resolve();
+        expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+
+        await jest.advanceTimersByTimeAsync(60_000);
+        expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+
+        service.onModuleDestroy();
+        await jest.advanceTimersByTimeAsync(120_000);
+        expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+      } finally {
+        service.onModuleDestroy();
+        jest.useRealTimers();
+      }
     });
   });
 });
