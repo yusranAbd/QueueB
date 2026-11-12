@@ -199,7 +199,6 @@ class ReservationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final doctorName = '${item.doctor['nama'] ?? ''}'.trim();
-    final reference = '${item.ticket['kodeTiket'] ?? ''}'.trim();
     return Container(
       key: ValueKey('reservation-${item.id}'),
       margin: const EdgeInsets.only(bottom: 8),
@@ -268,17 +267,6 @@ class ReservationCard extends StatelessWidget {
                                 'Antrean langsung / Walk-in',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  height: 1.4,
-                                  color: PatientDesign.muted,
-                                ),
-                              ),
-                            ],
-                            if (reference.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Kode tiket: $reference',
-                                style: const TextStyle(
-                                  fontSize: 12,
                                   height: 1.4,
                                   color: PatientDesign.muted,
                                 ),

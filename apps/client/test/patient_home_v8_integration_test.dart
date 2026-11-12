@@ -125,6 +125,12 @@ void main() {
             hasLength(2),
           );
         }
+        // Emergency contacts lead the page; service cards follow lazily.
+        await t.dragUntilVisible(
+          find.text('08.00–16.00'),
+          find.byKey(const PageStorageKey('patient-information')),
+          const Offset(0, -200),
+        );
         expect(find.text('08.00–16.00'), findsOneWidget);
         expect(
           backend.requests.where((r) => r.$2.startsWith('/penugasan-petugas')),

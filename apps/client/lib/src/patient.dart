@@ -1592,6 +1592,8 @@ class _PatientPageState extends State<PatientPage> {
   Widget _information() => PatientInformation(
     services: services,
     hours: serviceHours,
+    doctors: doctors,
+    config: widget.api.config,
     date: widget.api.config.today,
     hoursAvailable: hoursAvailable,
     loading: loading,

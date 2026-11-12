@@ -79,3 +79,7 @@ temp/
 
 # Prisma generated client
 apps/api/src/generated/prisma/
+
+# Video produk (rekaman mentah, tool edit, hasil render)
+media/
+video/
