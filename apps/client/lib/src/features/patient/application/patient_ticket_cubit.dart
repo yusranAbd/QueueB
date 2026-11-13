@@ -180,8 +180,9 @@ class PatientTicketCubit extends Cubit<PatientTicketState> {
     // one dispatch read. Passive proofs and services outside the shared cap
     // do not react to unrelated Home queue/catalog notifications.
     if (kinds.contains('TIKET') ||
-        !repository.hasTicketDispatchScope(this, ticketId))
+        !repository.hasTicketDispatchScope(this, ticketId)) {
       return;
+    }
     final ids = repository.updates.lastQueueIds;
     final serviceId = _signature?.$3;
     if (kinds.contains('KATALOG') ||
@@ -242,8 +243,9 @@ class PatientTicketCubit extends Cubit<PatientTicketState> {
         !_verified ||
         _loadingTicket ||
         _owned == null ||
-        repository.errors.containsKey(path))
+        repository.errors.containsKey(path)) {
       return Future.value();
+    }
     _dispatchRevision++;
     _dispatchDirty = true;
     _dispatch = null;

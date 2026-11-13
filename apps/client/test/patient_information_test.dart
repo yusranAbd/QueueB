@@ -87,6 +87,9 @@ void main() {
     expect(find.text('Kontak darurat'), findsOneWidget);
     expect(find.text(ClinicContacts.ambulanceDisplay), findsOneWidget);
     expect(find.byKey(const ValueKey('ambulance-whatsapp')), findsOneWidget);
+    // Tests run as a native build: no launcher, so the action copies.
+    expect(find.text('Salin nomor'), findsOneWidget);
+    expect(find.text('Chat WhatsApp'), findsNothing);
     expect(find.text('Nomor darurat nasional'), findsNothing);
 
     final umum = find.byKey(const ValueKey(('information', _umum)));

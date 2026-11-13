@@ -299,8 +299,13 @@ export class AuthService {
     if (admin.peran !== 'ADMIN' || admin.id === targetId) {
       throw new ForbiddenException('Akses ditolak');
     }
-    if (typeof newPassword !== 'string' || newPassword.length !== 8) {
-      throw new BadRequestException('Kata sandi harus tepat 8 karakter');
+    // Sama dengan aturan registrasi (RegisterDto): 8–72 karakter.
+    if (
+      typeof newPassword !== 'string' ||
+      newPassword.length < 8 ||
+      newPassword.length > 72
+    ) {
+      throw new BadRequestException('Kata sandi harus 8–72 karakter');
     }
     const passwordHash = await this.passwordService.hash(newPassword);
     const changedAt = new Date();

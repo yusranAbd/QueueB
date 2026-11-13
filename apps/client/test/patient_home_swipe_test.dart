@@ -6,7 +6,6 @@ import 'package:queueb_client/src/patient_home_appointment_card.dart';
 import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
-import 'package:queueb_client/src/patient_home.dart';
 
 import 'patient_home_v3_test.dart' show HomeBackend;
 

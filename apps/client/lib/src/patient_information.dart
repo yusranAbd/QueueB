@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -261,8 +262,13 @@ class _AmbulanceContact extends StatelessWidget {
           ClinicContacts.ambulanceWhatsApp,
           ClinicContacts.ambulanceDisplay,
         ),
-        icon: const Icon(Icons.chat_outlined, size: 18),
-        label: const Text('Chat WhatsApp'),
+        // Only Web can open WhatsApp; native builds copy the number, so the
+        // label must say what actually happens.
+        icon: const Icon(
+          kIsWeb ? Icons.chat_outlined : Icons.copy_outlined,
+          size: 18,
+        ),
+        label: const Text(kIsWeb ? 'Chat WhatsApp' : 'Salin nomor'),
       );
       // Side by side only when both fit; otherwise the action takes a full row.
       final inline =

@@ -20,7 +20,7 @@ describe('ADMIN reset kata sandi staf (isolated e2e)', () => {
   let app: INestApplication, db: PrismaService, auth: AuthService;
   const run = randomUUID().slice(0, 8);
   const password = `R0-${randomUUID()}!`;
-  const newPassword = 'Baru1234'; // aturan saat ini: tepat 8 karakter
+  const newPassword = 'Baru1234'; // aturan: 8–72 karakter
   const users: Record<
     PeranPengguna,
     { id: string; email: string; ref: string }
@@ -143,7 +143,7 @@ describe('ADMIN reset kata sandi staf (isolated e2e)', () => {
     expect(await auditFor(users.PETUGAS.ref)).toHaveLength(0);
   });
 
-  it('menolak target tidak sah dan sandi bukan 8 karakter tanpa efek samping', async () => {
+  it('menolak target tidak sah dan sandi di luar 8–72 karakter tanpa efek samping', async () => {
     const petugas = users.PETUGAS;
     const sesiAktif = () =>
       db.sesiPengguna.count({

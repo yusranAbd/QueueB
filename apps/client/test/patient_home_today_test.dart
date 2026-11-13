@@ -8,7 +8,6 @@ import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
 import 'package:queueb_client/src/patient_home.dart';
-import 'package:queueb_client/src/patient_home_v6.dart';
 
 import 'patient_home_v3_test.dart' show HomeBackend;
 

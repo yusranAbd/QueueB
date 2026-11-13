@@ -578,8 +578,19 @@ describe('AuthService', () => {
       expect(tx.auditSesi.create).not.toHaveBeenCalled();
     });
 
-    it.each(['Pendek1', 'Panjang123', 12345678, undefined])(
-      'menolak kata sandi bukan string tepat 8 karakter (%p)',
+    it.each(['Panjang123', 'x'.repeat(72)])(
+      'menerima kata sandi lebih dari 8 karakter (%p)',
+      async (value) => {
+        siapkanTx('DOKTER');
+        await expect(
+          service.adminResetStaffPassword(admin, targetId, value),
+        ).resolves.toMatchObject({ sessionsRevoked: expect.any(Number) });
+        expect(passwordMock.hash).toHaveBeenCalledWith(value);
+      },
+    );
+
+    it.each(['Pendek1', 'x'.repeat(73), 12345678, undefined])(
+      'menolak kata sandi bukan string 8–72 karakter (%p)',
       async (value) => {
         const tx = siapkanTx();
         await expect(

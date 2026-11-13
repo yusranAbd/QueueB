@@ -334,8 +334,8 @@ class _AdminStaffPasswordResetDialogState
                   ),
                   validator: (value) {
                     final v = value ?? '';
-                    if (v.length != 8) {
-                      return 'Kata sandi harus tepat 8 karakter.';
+                    if (v.length < 8 || v.length > 72) {
+                      return 'Kata sandi 8–72 karakter.';
                     }
                     return null;
                   },

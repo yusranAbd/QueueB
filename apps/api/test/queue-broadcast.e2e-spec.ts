@@ -17,10 +17,7 @@ import {
   StatusTiket,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
-import type {
-  JenisPerubahanAntrean,
-  QueueUpdatedEvent,
-} from '../src/realtime/realtime-events.types';
+import type { QueueUpdatedEvent } from '../src/realtime/realtime-events.types';
 
 interface AkunE2e {
   id: string;
@@ -401,7 +398,8 @@ describe('Queue Broadcast melalui HTTP dan Socket.IO (e2e)', () => {
 
   it('mengirim ENQUEUE, CALL, RECALL, SKIP, REQUEUE, START, COMPLETE via jaringan', async () => {
     await sambungkanKeRoom();
-    const urutan: JenisPerubahanAntrean[] = [
+    // Hanya aksi yang punya rute di postAntrean; CANCEL diuji terpisah.
+    const urutan: Parameters<typeof postAntrean>[0][] = [
       'ENQUEUE',
       'CALL',
       'RECALL',

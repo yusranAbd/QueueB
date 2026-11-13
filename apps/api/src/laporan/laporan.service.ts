@@ -62,11 +62,11 @@ export class LaporanService {
       );
     const metrics = (row: OperationalRow) => {
       const {
-        agregat,
-        tanggal,
-        layananId,
-        kodeLayanan,
-        namaLayanan,
+        agregat: _agregat,
+        tanggal: _tanggal,
+        layananId: _layananId,
+        kodeLayanan: _kodeLayanan,
+        namaLayanan: _namaLayanan,
         ...values
       } = row;
       return values;
@@ -83,7 +83,7 @@ export class LaporanService {
       baris: data
         .filter((row) => row.agregat === 0)
         .map((row) => {
-          const { agregat, ...values } = row;
+          const { agregat: _agregat, ...values } = row;
           return values;
         }),
     };

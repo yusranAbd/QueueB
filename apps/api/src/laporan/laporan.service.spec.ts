@@ -47,7 +47,7 @@ describe('Operational reports (mock only)', () => {
     const service = new LaporanService({
       $queryRaw: jest
         .fn()
-        .mockResolvedValue(new Array(5002).fill({ agregat: 0 })),
+        .mockResolvedValue(Array.from({ length: 5002 }, () => ({ agregat: 0 }))),
     } as unknown as PrismaService);
     await expect(
       service.read({ mulai: '2026-11-02', selesai: '2026-11-02' }),
