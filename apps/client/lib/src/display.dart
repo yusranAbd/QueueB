@@ -21,6 +21,22 @@ import 'queueb_feedback.dart';
 
 export 'features/display/services/announcement_gate.dart' show AnnouncementGate;
 
+/// Flutter Web reports a visible but unfocused window as `inactive`. A public
+/// display normally runs unfocused (TV, always-on-top side window), so only a
+/// hidden or paused page stops polling and announcements.
+class DisplayVisibility {
+  bool _visible = true;
+
+  /// The new visibility when it changed, otherwise null.
+  bool? update(AppLifecycleState state) {
+    final visible =
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+    if (visible == _visible) return null;
+    return _visible = visible;
+  }
+}
+
 class DisplayPage extends StatefulWidget {
   const DisplayPage({
     super.key,
@@ -57,6 +73,7 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
     audioController,
   );
   late final displayClock = ValueNotifier<DateTime>(widget.api.config.now);
+  final visibility = DisplayVisibility();
   Timer? clock;
   bool get connected => device.state.connected;
   bool get activating => device.state.phase == DisplayDevicePhase.pairing;
@@ -111,10 +128,13 @@ class _DisplayPageState extends State<DisplayPage> with WidgetsBindingObserver {
   Future<void> toggleAudio() => audioController.toggle();
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(monitor.resume());
-    } else {
-      monitor.pause();
+    switch (visibility.update(state)) {
+      case true:
+        unawaited(monitor.resume());
+      case false:
+        monitor.pause();
+      case null:
+        break;
     }
   }
 

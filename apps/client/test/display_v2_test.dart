@@ -54,6 +54,19 @@ Json _snapshot({
 };
 
 void main() {
+  test('unfocused but visible display keeps announcing; hidden pauses', () {
+    final visibility = DisplayVisibility();
+    // Clicking another always-on-top window must not mute the display.
+    expect(visibility.update(AppLifecycleState.inactive), isNull);
+    expect(visibility.update(AppLifecycleState.resumed), isNull);
+    expect(visibility.update(AppLifecycleState.inactive), isNull);
+    expect(visibility.update(AppLifecycleState.hidden), isFalse);
+    expect(visibility.update(AppLifecycleState.paused), isNull);
+    expect(visibility.update(AppLifecycleState.hidden), isNull);
+    // Restored but not focused (e.g. un-minimized beside the staff window).
+    expect(visibility.update(AppLifecycleState.inactive), isTrue);
+    expect(visibility.update(AppLifecycleState.resumed), isNull);
+  });
   setUpAll(tz.initializeTimeZones);
   Json announcement(String id, {String action = 'CALL'}) => {
     'peristiwaId': id,

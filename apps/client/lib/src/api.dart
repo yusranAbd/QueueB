@@ -446,9 +446,7 @@ class QueueApi extends ChangeNotifier {
     await _persist(_pendingPersistence!, generation);
   }
 
-  void _scheduleRenew() {
-    _renew?.cancel();
-    if (sessionPhase != SessionPhase.ready || user == null) return;
+  DateTime? _accessExpiry() {
     try {
       final claims = object(
         jsonDecode(
@@ -457,17 +455,33 @@ class QueueApi extends ChangeNotifier {
           ),
         ),
       );
-      final expiry = DateTime.fromMillisecondsSinceEpoch(
+      return DateTime.fromMillisecondsSinceEpoch(
         (claims['exp'] as num).toInt() * 1000,
       );
-      final delay =
-          expiry.difference(DateTime.now()) - const Duration(seconds: 30);
-      _renew = Timer(delay.isNegative ? const Duration(seconds: 1) : delay, () {
-        refresh().catchError((Object _) {});
-      });
     } catch (_) {
-      /* Token remains server validated; 401 also triggers refresh. */
+      return null;
     }
+  }
+
+  /// True when the access token expires within [margin] or its expiry is
+  /// unreadable. A fresh token rejected elsewhere (origin, rate limit, role)
+  /// is not an expiry problem, and rotating it would only loop.
+  bool accessTokenExpiresWithin(Duration margin) {
+    final expiry = _accessExpiry();
+    return expiry == null || expiry.difference(DateTime.now()) <= margin;
+  }
+
+  void _scheduleRenew() {
+    _renew?.cancel();
+    if (sessionPhase != SessionPhase.ready || user == null) return;
+    final expiry = _accessExpiry();
+    // Token remains server validated; 401 also triggers refresh.
+    if (expiry == null) return;
+    final delay =
+        expiry.difference(DateTime.now()) - const Duration(seconds: 30);
+    _renew = Timer(delay.isNegative ? const Duration(seconds: 1) : delay, () {
+      refresh().catchError((Object _) {});
+    });
   }
 
   Future<void> refresh() {

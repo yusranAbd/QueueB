@@ -36,8 +36,12 @@ export class DoctorRealtimeGateway
     server.use((client, next) => {
       try {
         keamananHandshakeSocket.periksa(client, 'doctor');
-      } catch {
-        next(new Error('UNAUTHORIZED'));
+      } catch (error) {
+        // Sama dengan gateway pasien/petugas: ORIGIN_NOT_ALLOWED/RATE_LIMITED
+        // bukan masalah token, jadi klien tidak boleh merotasi sesi karenanya.
+        next(
+          new Error(error instanceof Error ? error.message : 'UNAUTHORIZED'),
+        );
         return;
       }
       void this.authenticate(client)

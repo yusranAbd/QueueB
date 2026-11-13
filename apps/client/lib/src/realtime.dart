@@ -132,7 +132,10 @@ class RealtimeFeed {
               ? 'Token perangkat ditolak. Hubungkan ulang dengan token sah.'
               : 'Autentikasi realtime ditolak.',
         );
-        if (!isDisplay && !_renewing && !text.contains('forbidden')) {
+        if (!isDisplay &&
+            !_renewing &&
+            !text.contains('forbidden') &&
+            api.accessTokenExpiresWithin(const Duration(seconds: 60))) {
           _renewing = true;
           try {
             await api.refresh();

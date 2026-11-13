@@ -314,4 +314,74 @@ void main() {
       }
     },
   );
+  String jwt(Duration validFor) {
+    String part(Json value) =>
+        base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+    final exp = DateTime.now().add(validFor).millisecondsSinceEpoch ~/ 1000;
+    return '${part({'alg': 'HS256'})}.${part({'exp': exp})}.signature';
+  }
+
+  for (final (label, validFor, expected) in [
+    ('fresh token is not rotated', const Duration(minutes: 14), 0),
+    ('expiring token is rotated once', const Duration(seconds: 20), 1),
+  ]) {
+    testWidgets('doctor socket rejection: $label', (tester) async {
+      var rotations = 0;
+      final a = api(
+            client: MockClient((r) async {
+              if (r.url.path.endsWith('/auth/login')) {
+                return http.Response(
+                  jsonEncode({
+                    'accessToken': jwt(validFor),
+                    'refreshToken': 'initial-refresh',
+                    'user': {'id': 'owner', 'peran': 'DOKTER'},
+                  }),
+                  200,
+                );
+              }
+              if (r.url.path.endsWith('/auth/me')) {
+                return http.Response(
+                  jsonEncode({'id': 'owner', 'peran': 'DOKTER'}),
+                  200,
+                );
+              }
+              rotations++;
+              return http.Response(
+                jsonEncode({
+                  'accessToken': jwt(const Duration(minutes: 15)),
+                  'refreshToken': 'next-refresh-$rotations',
+                  'user': {'id': 'owner', 'peran': 'DOKTER'},
+                }),
+                200,
+              );
+            }),
+          ),
+          sockets = <FakePatientSocket>[];
+      await a.login('fixture@test.local', 'test-password');
+      final feed = PatientUpdates(
+        api: a,
+        role: 'DOKTER',
+        namespace: 'doctor',
+        eventKinds: const ['ANTREAN'],
+        socketFactory: (_, _) {
+          final s = FakePatientSocket();
+          sockets.add(s);
+          return s;
+        },
+      );
+      try {
+        // Origin/rate-limit rejections must not turn into a rotation loop.
+        for (var i = 0; i < 5; i++) {
+          sockets.last.fire('connect_error', 'UNAUTHORIZED');
+          await tester.pump();
+          await tester.pump();
+        }
+        expect(rotations, expected);
+        expect(sockets.length, 1 + expected);
+      } finally {
+        feed.dispose();
+        a.dispose();
+      }
+    });
+  }
 }

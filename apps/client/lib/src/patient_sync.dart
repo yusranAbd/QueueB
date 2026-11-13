@@ -240,7 +240,13 @@ class PatientUpdates extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _renew() async {
-    if (_disposed || _renewing) return;
+    // Only an expiring token justifies rotation; otherwise a rejected socket
+    // would reconnect with each new token and drain the refresh rate limit.
+    if (_disposed ||
+        _renewing ||
+        !api.accessTokenExpiresWithin(const Duration(seconds: 60))) {
+      return;
+    }
     _renewing = true;
     try {
       await api.refresh();
