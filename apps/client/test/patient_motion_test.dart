@@ -512,11 +512,11 @@ void main() {
     await tester.pumpAndSettle();
     await openPatientCatalog(tester);
 
-    await press(tester, find.text('Lihat Detail Dokter'));
-    expect(find.text('Jadwal praktik'), findsOneWidget);
-    await press(tester, find.text('Sisa slot 2'));
+    await press(tester, find.text('Pilih Jadwal'));
+    expect(find.text('Jadwal Praktik'), findsOneWidget);
+    await press(tester, find.text('09:00'));
     final booking = tester
-        .element(find.text('Jadwal praktik'))
+        .element(find.text('Jadwal Praktik'))
         .read<PatientBookingCubit>();
     final draft = (
       booking.serviceId,

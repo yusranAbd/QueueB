@@ -9,6 +9,7 @@ import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
 import 'package:queueb_client/src/patient_ui.dart';
+import 'package:queueb_client/src/patient_reservations.dart';
 
 import 'doctor_schedule_test.dart' show DoctorBackend;
 import 'ui_test.dart' show uid;
@@ -170,15 +171,12 @@ void main() {
     (tester) async {
       await launch(tester, PatientV2Backend()..mixedDoctors = true);
       await clinic(tester);
-      expect(find.byType(PatientDoctorCard), findsOneWidget);
+      expect(find.byType(ReservationDoctorChoice), findsOneWidget);
       expect(find.text('dr. Indah'), findsOneWidget);
       expect(find.textContaining('Dokter Nonaktif'), findsNothing);
       expect(find.textContaining('Dokter Poli Lain'), findsNothing);
       expect(find.textContaining('Dokter Relasi Nonaktif'), findsNothing);
-      expect(
-        find.textContaining('slot tersedia pada sesi terdekat'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Jadwal terdekat'), findsOneWidget);
       await press(tester, find.text('Pilih Jadwal'));
       expect(find.text('Detail Dokter'), findsOneWidget);
       expect(find.text('Penyakit Dalam'), findsOneWidget);
@@ -209,14 +207,16 @@ void main() {
           find.descendant(of: dialog, matching: find.text('RU · Ruang Umum')),
           findsOneWidget,
         );
-        expect(find.textContaining('Asia/Jakarta'), findsWidgets);
+        // Times are labelled with the local zone abbreviation.
+        expect(find.textContaining('WIB'), findsWidgets);
         expect(find.text('UM-001'), findsNothing);
         await press(
           tester,
           find.widgetWithText(FilledButton, 'Konfirmasi Janji Temu'),
         );
         expect(bookings(backend).single.$3, {'slotPraktikId': uid});
-        expect(find.text('UM-001'), findsOneWidget);
+        // The success notice names the new ticket.
+        expect(find.textContaining('UM-001'), findsWidgets);
         expect(
           backend.appointments.single['id'],
           isNot(backend.tickets.single['id']),
@@ -231,11 +231,11 @@ void main() {
     (tester) async {
       final backend = PatientV2Backend()..walkOnly = true;
       await launch(tester, backend);
+      // A walk-in-only clinic offers no doctor appointment choice at all.
       await openPatientCatalog(tester);
-      await press(tester, find.text('Pilih Jadwal'));
+      expect(find.text('Pilih Jadwal'), findsNothing);
       expect(find.text('Konfirmasi Janji'), findsNothing);
-      expect(find.text('Daftar antrean poliklinik'), findsOneWidget);
-      await press(tester, find.byTooltip('Kembali'));
+      await openPatientCatalog(tester, walkIn: true);
       await press(tester, find.text('Reservasi Walk-in'));
       await press(tester, find.text('Lanjutkan'));
       expect(
@@ -314,13 +314,27 @@ void main() {
     await launch(tester, backend);
     await tester.ensureVisible(find.text('KUNJUNGAN TERDEKAT'));
     expect(find.text('KUNJUNGAN TERDEKAT'), findsOneWidget);
-    await press(tester, find.text('Lihat Detail'));
+    // The whole nearest-visit card opens the ticket.
+    await press(tester, find.byKey(const ValueKey('patient-nearest-visit')));
     expect(find.text('Detail Tiket'), findsOneWidget);
     await press(tester, find.text('Tutup'));
     await openPatientTickets(tester);
     expect(find.text('Reservasi'), findsWidgets);
-    expect(find.text('UM-004'), findsOneWidget);
-    expect(find.text('UM-001'), findsOneWidget);
+    // Cards title the ticket as "Antrean <number>"; history sits lower.
+    expect(find.text('Antrean UM-001'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Antrean UM-004'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('reservation-list')),
+            matching: find.byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first,
+    );
+    expect(find.text('Antrean UM-004'), findsOneWidget);
   });
 
   test('calendar DATE and slot labels follow configured service timezone', () {

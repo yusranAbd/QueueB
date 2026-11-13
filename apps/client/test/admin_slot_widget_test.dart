@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:queueb_client/src/admin.dart';
 import 'package:queueb_client/src/admin_data.dart';
+import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_ui.dart';
 import 'package:queueb_client/src/features/admin/application/slot_session_cubit.dart';
 import 'package:queueb_client/src/features/admin/application/practice_schedule_cubit.dart';
@@ -20,7 +21,7 @@ void main() {
   late SlotFixture f;
   setUp(() => f = SlotFixture());
   tearDown(() => f.dispose());
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool history = true}) async {
     tester.view.physicalSize = const Size(1440, 1100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -35,14 +36,22 @@ void main() {
     expect(f.reads, isEmpty);
     expect(find.text('Dari tanggal'), findsNothing);
     expect(find.text('Sampai tanggal'), findsNothing);
+    // Fixture sessions are dated in the past, so they live under history.
+    if (history) {
+      await tester.tap(find.text('Riwayat / nonaktif'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Poli').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Dokter').last);
     await tester.pumpAndSettle();
   }
 
+  // Index 0/1 means fixture session 'a'/'b'; history order is not asserted.
   Finder tile(int index) => find.descendant(
-    of: find.byType(AdminSlotSession).at(index),
+    of: find.byWidgetPredicate(
+      (w) => w is AdminSlotSession && w.session['id'] == ['a', 'b'][index],
+    ),
     matching: find.byType(ExpansionTile),
   );
   SlotSessionCubit scope(WidgetTester tester, int index) =>
@@ -91,11 +100,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(f.reads['a'], 3);
       expect(f.reads['b'], 2);
-      await tester.tap(find.widgetWithText(ListTile, 'Dashboard'));
+      await tester.tap(find.text('Dashboard'));
       await tester.pumpAndSettle();
       expect(f.reads['a'], 3);
       f.data['a']!.single['kapasitas'] = 8;
-      await tester.tap(find.widgetWithText(ListTile, 'Slot konsultasi'));
+      // Slots are no longer a sidebar entry; return through the section API.
+      tester.widget<AdminNavigation>(find.byType(AdminNavigation)).onSelect!(5);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Riwayat / nonaktif'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Poli').last);
       await tester.pumpAndSettle();
@@ -241,10 +253,35 @@ void main() {
       },
     );
   }
+
+  /// New slots may only be added to sessions that have not ended, so this
+  /// moves both fixture sessions to 00:00 WIB three days from today.
+  (DateTime, DateTime) moveSessionsToFuture() {
+    final day = DateTime.parse(f.api.config.today).add(const Duration(days: 3));
+    final start = DateTime.utc(
+      day.year,
+      day.month,
+      day.day,
+    ).subtract(const Duration(hours: 7));
+    for (final s in f.masters['/jadwal-praktik']!) {
+      s['tanggal'] = day.toIso8601String().substring(0, 10);
+      s['mulaiPada'] = start.toIso8601String();
+      s['selesaiPada'] = start.add(const Duration(hours: 2)).toIso8601String();
+    }
+    for (final slot in f.data.values.expand((v) => v)) {
+      slot['mulaiPada'] = start.toIso8601String();
+      slot['selesaiPada'] = start
+          .add(const Duration(minutes: 15))
+          .toIso8601String();
+    }
+    return (day, start);
+  }
+
   testWidgets(
     'existing create slot form routes selected session through its sole Cubit',
     (tester) async {
-      await open(tester);
+      final (day, start) = moveSessionsToFuture();
+      await open(tester, history: false);
       await expand(tester);
       final c = scope(tester, 0);
       await tester.tap(find.text('Tambah'));
@@ -253,7 +290,7 @@ void main() {
         await tester.tap(find.byTooltip('Pilih $field (YYYY-MM-DDTHH:mm)'));
         await tester.pumpAndSettle();
         expect(find.byType(DatePickerDialog), findsOneWidget);
-        await tester.tap(find.text('29').last);
+        await tester.tap(find.text('${day.day}').last);
         await tester.tap(find.text('OK'));
         await tester.pumpAndSettle();
         expect(find.byType(TimePickerDialog), findsOneWidget);
@@ -269,6 +306,16 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      // The page-level form asks for the session explicitly. Both fixture
+      // sessions share a label; choices sort by start then id, so first is 'a'.
+      final choice = find.descendant(
+        of: find.byType(AdminSearchChoice),
+        matching: find.byType(TextField),
+      );
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('· Dokter · Poli · Ruang').first);
+      await tester.pumpAndSettle();
       await pick('Mulai', '15');
       await pick('Selesai', '30');
       await tester.enterText(
@@ -282,7 +329,10 @@ void main() {
         f.calls.singleWhere((r) => r.method == 'POST').body,
       );
       expect(body['jadwalPraktikId'], 'a');
-      expect(body['mulaiPada'], '2026-10-28T17:15:00.000Z');
+      expect(
+        body['mulaiPada'],
+        start.add(const Duration(minutes: 15)).toIso8601String(),
+      );
       expect(c.state.slots, hasLength(2));
       expect(f.reads['b'], isNull);
       await tester.pumpWidget(const SizedBox());

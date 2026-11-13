@@ -10,7 +10,6 @@ import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
 import 'package:queueb_client/src/patient_reservations.dart';
-import 'package:queueb_client/src/doctor_professional.dart';
 import 'package:queueb_client/src/doctor_schedule_ui.dart';
 
 import 'ui_test.dart' show FakeBackend, uid;
@@ -186,13 +185,27 @@ void main() {
     await t.pumpAndSettle();
   }
 
+  // The vertical reservation list (or, inside a booking page, the first
+  // vertical scrollable); horizontal filter chips also scroll.
+  Finder listScrollable() {
+    final list = find.descendant(
+      of: find.byKey(const PageStorageKey('reservation-list')),
+      matching: find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
+    );
+    return list.evaluate().isNotEmpty
+        ? list.first
+        : find
+              .byWidgetPredicate(
+                (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+              )
+              .first;
+  }
+
   Future<void> press(WidgetTester t, Finder f) async {
     if (f.evaluate().isEmpty) {
-      await t.scrollUntilVisible(
-        f,
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await t.scrollUntilVisible(f, 180, scrollable: listScrollable());
     }
     await t.ensureVisible(f.last);
     await t.pumpAndSettle();
@@ -229,13 +242,7 @@ void main() {
       'reservation cards, FAB, bottom sheet and navigation fit $size',
       (t) async {
         await launch(t, ReservationBackend(), size: size);
-        expect(
-          find.descendant(
-            of: find.byType(ReservationList),
-            matching: find.text('Reservasi Pasien'),
-          ),
-          findsOneWidget,
-        );
+        expect(find.text('Reservasi Pasien'), findsOneWidget);
         expect(find.text('Antrean langsung / Walk-in'), findsOneWidget);
         expect(find.text('Batalkan Reservasi'), findsOneWidget);
         await press(t, find.byKey(const ValueKey('create-reservation')));
@@ -248,13 +255,7 @@ void main() {
         );
         expect(t.takeException(), isNull);
         await press(t, find.byTooltip('Tutup pilihan reservasi'));
-        expect(
-          find.descendant(
-            of: find.byType(ReservationList),
-            matching: find.text('Reservasi Pasien'),
-          ),
-          findsOneWidget,
-        );
+        expect(find.byType(ReservationList), findsOneWidget);
       },
     );
   }
@@ -283,7 +284,11 @@ void main() {
       expect(find.text('Buka Tiket'), findsNothing);
       b.tickets.clear();
       b.appointments.clear();
-      await press(t, find.byTooltip('Muat ulang reservasi'));
+      // Reload is pull-to-refresh on the list.
+      await t.runAsync(
+        t.widget<RefreshIndicator>(find.byType(RefreshIndicator)).onRefresh,
+      );
+      await t.pumpAndSettle();
       expect(
         find.text('Tidak ada reservasi yang sesuai pencarian atau filter.'),
         findsOneWidget,
@@ -356,7 +361,7 @@ void main() {
       await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Cari Dokter'));
       expect(find.byType(ReservationDoctorChoice), findsOneWidget);
-      await press(t, find.textContaining('dr. Indah'));
+      await press(t, find.text('Pilih Jadwal'));
       await press(t, find.text('09:00'));
       await press(t, find.widgetWithText(FilledButton, 'Konfirmasi Janji'));
       await press(t, find.text('Konfirmasi Janji Temu'));
@@ -396,7 +401,7 @@ void main() {
       await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       expect(find.byType(ReservationDoctorChoice), findsOneWidget);
-      await press(t, find.textContaining('dr. Indah'));
+      await press(t, find.text('Pilih Jadwal'));
       expect(
         t.widget<ConsultationSlotGrid>(find.byType(ConsultationSlotGrid)).value,
         uid,
@@ -405,7 +410,8 @@ void main() {
         b.requests.any((r) => r.$1 == 'POST' && r.$2 == '/janji-temu'),
         isFalse,
       );
-      await press(t, find.widgetWithText(NavigationDestination, 'Reservasi'));
+      // The doctor page is full screen; return to the reservation list.
+      await openPatientTickets(t);
       b.slotsAvailable = false;
       await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
@@ -495,7 +501,7 @@ void main() {
       await press(t, find.byKey(const ValueKey('create-reservation')));
       await press(t, find.text('Jadwal Terdekat'));
       b.slotsAvailable = false;
-      await press(t, find.textContaining('dr. Indah'));
+      await press(t, find.text('Pilih Jadwal'));
       expect(
         t.widget<ConsultationSlotGrid>(find.byType(ConsultationSlotGrid)).value,
         isNull,

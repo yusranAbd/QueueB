@@ -14,7 +14,10 @@ import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/config.dart';
 import 'package:queueb_client/src/display.dart';
 import 'package:queueb_client/src/display_selection.dart';
+import 'package:queueb_client/src/features/display/services/display_audio_controller.dart';
 import 'package:queueb_client/src/mobile_ui.dart';
+
+import 'display_bloc_fixture.dart' show FakeDisplaySpeech;
 
 void main() {
   final capture = Platform.environment['QUEUEB_MULTI_CAPTURE_DIR'];
@@ -146,6 +149,12 @@ void main() {
           });
         }),
       );
+      // Tests have no speech voices; each page gets its own fake engine so
+      // enabling audio on one monitor can be observed independently.
+      final audioA = DisplayAudioController(engine: FakeDisplaySpeech()),
+          audioB = DisplayAudioController(engine: FakeDisplaySpeech());
+      addTearDown(audioA.dispose);
+      addTearDown(audioB.dispose);
       final captureKey = GlobalKey();
       final left = find.byKey(const ValueKey('tab-a')),
           right = find.byKey(const ValueKey('tab-b'));
@@ -160,6 +169,7 @@ void main() {
                   child: DisplayPage(
                     key: const ValueKey('tab-a'),
                     api: api,
+                    audioController: audioA,
                     selection: selectionA,
                     onExit: () {},
                   ),
@@ -168,6 +178,7 @@ void main() {
                   child: DisplayPage(
                     key: const ValueKey('tab-b'),
                     api: api,
+                    audioController: audioB,
                     selection: selectionB,
                     onExit: () {},
                   ),

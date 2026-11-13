@@ -11,11 +11,16 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:queueb_client/src/api.dart';
+import 'package:queueb_client/src/admin_service_setup.dart';
+import 'package:queueb_client/src/admin_dashboard_header.dart';
+import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/app.dart';
 import 'package:queueb_client/src/config.dart';
 import 'package:queueb_client/src/staff_qr_scanner.dart';
 import 'package:queueb_client/src/patient_reservations.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
+import 'patient_reservation_helpers.dart';
 
 const uid = '11111111-1111-4111-8111-111111111111';
 
@@ -99,6 +104,17 @@ class FakeBackend {
     }
     if (path == '/auth/me') return reply(user);
     if (path == '/auth/register' || path == '/auth/logout') return reply(user);
+    // The admin dashboard and setup wizard also read today's report and
+    // service readiness; answer them so no error notice covers the page.
+    if (path == '/laporan/operasional') {
+      return reply({
+        'periode': {'mulai': today, 'selesai': today, 'layananId': null},
+        'diperolehPada': '${today}T01:00:00Z',
+        'ringkasan': <String, dynamic>{},
+        'baris': <Json>[],
+      });
+    }
+    if (path == '/layanan/kesiapan') return reply(<Json>[]);
     if (path == '/layanan') {
       await catalogGate?.future;
       if (offline) return reply({'message': 'Koneksi layanan terputus.'}, 503);
@@ -138,10 +154,12 @@ class FakeBackend {
           'id': uid,
           'tanggal': today,
           'mulaiPada': '${today}T02:00:00Z',
-          'selesaiPada': '${today}T04:00:00Z',
+          // Ends 23:59 WIB so today's session stays bookable at any hour.
+          'selesaiPada': '${today}T16:59:00Z',
           'loket': room,
           'dokterLayanan': {
             'dokterId': uid,
+            'layananId': uid,
             'dokter': {'id': uid, 'nama': 'Dokter Umum'},
           },
         },
@@ -498,13 +516,20 @@ void main() {
         find.widgetWithText(TextFormField, 'Prefix antrean'),
         'PU',
       );
-      await press(tester, 'Simpan');
+      // The setup wizard shows a running progress bar while its form dialog
+      // is open, so the page cannot settle until the dialog closes.
+      await tester.tap(find.text('Simpan').last);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
       final post = server.requests
           .where((r) => r.$1 == 'POST' && r.$2 == '/layanan')
           .single;
       expect(post.$3['modeReservasi'], 'HIBRIDA');
       expect(post.$3['durasiDasarMenit'], 15);
-      expect(find.text('Data disimpan.'), findsOneWidget);
+      // A successful save closes the form and returns to the wizard.
+      expect(find.text('Tambah Poliklinik'), findsNothing);
+      expect(find.byType(AdminServiceSetup), findsOneWidget);
     },
   );
   testWidgets(
@@ -584,7 +609,8 @@ void main() {
       // The single available session automatically loads slots in Detail Dokter.
       expect(find.text('Buat Janji Temu'), findsNothing);
       expect(find.text('Konfirmasi Janji'), findsOneWidget);
-      await press(tester, 'Sisa slot 2');
+      // Slot buttons show their start time; capacity is in the tooltip.
+      await press(tester, '09:00');
       await press(tester, 'Konfirmasi Janji');
       await press(tester, 'Konfirmasi Janji Temu');
       expect(
@@ -634,12 +660,23 @@ void main() {
     await launch(tester, server, size: const Size(390, 844));
     expect(find.byType(NavigationRail), findsNothing);
     await press(tester, 'Menu administrasi');
-    await tester.scrollUntilVisible(
-      find.byTooltip('Profil akun'),
-      200,
-      scrollable: find.byType(Scrollable).last,
+    expect(find.byType(AdminNavigation), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AdminNavigation),
+        matching: find.text('Dashboard'),
+      ),
     );
-    await tester.tap(find.byTooltip('Profil akun'));
+    await tester.pumpAndSettle();
+    // The profile is opened from the header account menu.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AdminPortalHeader),
+        matching: find.byWidgetPredicate((w) => w is PopupMenuButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil Saya'));
     await tester.pumpAndSettle();
     expect(find.text('Profil Saya'), findsOneWidget);
     expect(find.text('Informasi Pribadi'), findsWidgets);
@@ -653,7 +690,7 @@ void main() {
     await launch(tester, FakeBackend('USER'), size: const Size(375, 812));
     expect(find.textContaining(RegExp(r'^Halo, ')), findsOneWidget);
     await press(tester, 'Reservasi');
-    await press(tester, 'Buat Reservasi');
+    await openCreateReservation(tester);
     await press(tester, 'Cari Dokter');
     expect(find.text('Buat Reservasi'), findsOneWidget);
     await tester.enterText(
@@ -665,8 +702,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Tidak ada dokter yang sesuai.'), findsOneWidget);
-    await press(tester, 'Reservasi');
-    expect(find.text('Belum ada reservasi yang sesuai.'), findsOneWidget);
+    await openPatientTickets(tester);
+    expect(find.byType(ReservationList), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final width in [320.0, 375.0, 414.0, 768.0]) {
@@ -714,6 +751,8 @@ void main() {
       findsNothing,
     );
     await tester.pumpWidget(const SizedBox());
+    // Let entrance-animation timers started by the reload finish first.
+    await tester.pump(const Duration(seconds: 1));
     api.dispose();
   });
   for (final status in [
@@ -805,8 +844,15 @@ void main() {
       expect(find.byTooltip('Kembali'), findsOneWidget);
       expect(find.text('Buat Janji Temu'), findsNothing);
       // Slot retrieval is automatic for a day with one practice session.
+      // Remaining capacity is announced in the slot tooltip.
       final unavailable = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, 'Sisa slot 0'),
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip && (w.message?.endsWith('Sisa slot 0') ?? false),
+          ),
+          matching: find.byType(OutlinedButton),
+        ),
       );
       expect(unavailable.onPressed, isNull);
       final book = tester.widget<FilledButton>(

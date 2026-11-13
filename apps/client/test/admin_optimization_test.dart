@@ -10,6 +10,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:queueb_client/src/admin.dart';
 import 'package:queueb_client/src/admin_data.dart';
 import 'package:queueb_client/src/admin_practice_agenda.dart';
+import 'package:queueb_client/src/admin_dashboard.dart';
 import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_schema.dart';
 import 'package:queueb_client/src/admin_ui.dart';
@@ -17,7 +18,8 @@ import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/config.dart';
 
 void main() {
-  setUpAll(tz.initializeTimeZones);
+  // Fixtures below read the service clock, which needs the zone database.
+  tz.initializeTimeZones();
   final clinics = [
     for (int i = 0; i < 11; i++)
       {
@@ -44,11 +46,17 @@ void main() {
         ],
       },
   ];
+  // The agenda opens on the service-local today, so dates follow the clock.
+  final today = DateTime.parse(
+    AppConfig(apiBaseUrl: 'http://localhost/api/v1').today,
+  );
+  String day(int offset) =>
+      today.add(Duration(days: offset)).toIso8601String().substring(0, 10);
   final sessions = <Json>[
     for (int i = 0; i < 440; i++)
       {
         'id': 'session-$i',
-        'tanggal': '2026-10-${(17 + i % 3).toString().padLeft(2, '0')}',
+        'tanggal': day(i % 3),
         'mulaiPada': '2026-10-17T01:00:00Z',
         'selesaiPada': '2026-10-17T09:00:00Z',
         'aktif': i % 2 == 0,
@@ -71,15 +79,14 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Master Data'), findsOneWidget);
       expect(find.byType(ExpansionTile), findsNothing);
-      for (var index = -1; index < 10; index++) {
+      // Every module listed in the sidebar groups stays directly reachable.
+      for (final index in adminNavigationGroups.expand((g) => g.$2)) {
         final item = find.text(adminSectionTitle(index));
         await tester.scrollUntilVisible(item, 120);
         await tester.tap(item);
         expect(selected, index);
       }
-      expect(find.text('Laporan & Aktivitas'), findsOneWidget);
     },
   );
   testWidgets(
@@ -178,6 +185,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // On phones the service cards sit below the headline metrics.
+      await tester.scrollUntilVisible(
+        find.text('Poliklinik 0'),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(AdminDashboard),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('Poliklinik 0'), findsOneWidget);
       if (width < 960) {
         await tester.tap(find.byTooltip('Menu administrasi'));

@@ -299,7 +299,10 @@ void main() {
         await tester.tap(find.text('Lihat tiket & QR'));
         await tester.pumpAndSettle();
         expect(owners.created.whereType<PatientTicketCubit>(), hasLength(1));
-        expect(backend.requests.where((r) => r.$1 != 'GET'), isEmpty);
+        // Opening the dialog issues the check-in QR once; nothing else posts.
+        expect(backend.requests.where((r) => r.$1 != 'GET').map((r) => r.$2), [
+          '/tiket/$uid/qr',
+        ]);
         router.go('/patient/tickets');
         await tester.pumpAndSettle();
         expect(find.byType(Dialog), findsNothing);
@@ -590,8 +593,9 @@ void main() {
       );
       await openPatientCatalog(tester, walkIn: true);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Reservasi Walk-in'));
-      await tester.tap(find.text('Reservasi Walk-in'));
+      // The page title repeats the label; the action button comes last.
+      await tester.ensureVisible(find.text('Reservasi Walk-in').last);
+      await tester.tap(find.text('Reservasi Walk-in').last);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Lanjutkan'));
       await tester.pump();

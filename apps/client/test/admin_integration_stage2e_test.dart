@@ -154,8 +154,8 @@ void main() {
           ),
         ),
       );
-      expectUnknownMasterMetrics(['/dokter', '/loket', '/jadwal-praktik']);
-      expect(find.text('0 aktif'), findsNothing);
+      expectUnknownOperationalMetrics();
+      expect(find.text('1 layanan aktif'), findsOneWidget);
       expect(f.calls, isEmpty);
     },
   );
@@ -289,16 +289,13 @@ void main() {
       f.readError = 503;
       await open(tester);
       expect(find.byType(AdminDashboard), findsOneWidget);
-      expectUnknownMasterMetrics([
-        '/layanan',
-        '/dokter',
-        '/loket',
-        '/jadwal-praktik',
-      ]);
+      expectUnknownOperationalMetrics();
+      expect(find.text('Data layanan belum tersedia.'), findsOneWidget);
       f.readError = null;
       tester.widget<AdminDashboard>(find.byType(AdminDashboard)).onRefresh!();
       await tester.pumpAndSettle();
-      expect(find.text('Data belum tersedia'), findsNothing);
+      expect(find.text('Data layanan belum tersedia.'), findsNothing);
+      expect(find.text('1 layanan aktif'), findsOneWidget);
       expect(hasSlots(), isFalse);
       await tester.pumpWidget(const SizedBox());
     },

@@ -8,13 +8,14 @@ import 'package:queueb_client/src/features/patient/application/patient_overview_
 /// Exercise the retained ticket deep link, which is no longer a bottom item.
 /// Use the router rather than manipulating the feature's state or controllers.
 Future<void> openPatientTickets(WidgetTester tester) async {
-  GoRouter.of(tester.element(find.byType(NavigationBar)))
+  // Full-screen booking pages hide the NavigationBar; any routed page works.
+  GoRouter.of(tester.element(find.byType(Scaffold).first))
       .go('/patient/tickets');
   await tester.pumpAndSettle();
 }
 
 Future<void> openPatientAgenda(WidgetTester tester) async {
-  GoRouter.of(tester.element(find.byType(NavigationBar)))
+  GoRouter.of(tester.element(find.byType(Scaffold).first))
       .go('/patient/appointments');
   await tester.pumpAndSettle();
 }
@@ -36,7 +37,11 @@ Future<void> openPatientCatalog(
   GoRouter.of(context).go(
     Uri(
       path: '/patient/reservations/new',
-      queryParameters: {'clinic': clinic['id'] as String},
+      // Walk-in booking is its own route mode (the home "Ambil Antrean" tab).
+      queryParameters: {
+        'clinic': clinic['id'] as String,
+        if (walkIn) 'mode': 'walk-in',
+      },
     ).toString(),
   );
   await tester.pumpAndSettle();

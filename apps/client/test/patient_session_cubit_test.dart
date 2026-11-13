@@ -35,9 +35,8 @@ void main() {
     final visit = tester.widget<PatientHomeVisitV8>(
       find.byType(PatientHomeVisitV8),
     );
+    // Opening the ticket issues the check-in QR once, automatically.
     visit.onOpen!();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Terbitkan QR'));
     await tester.pumpAndSettle();
   }
 
@@ -73,8 +72,8 @@ void main() {
       expect(f.reads['/tiket/saya'], 1);
       expect(overview.state.snapshot, same(visits.state.snapshot));
       expect(booking.patient, same(f.repository));
-      expect(find.byType(PatientHomeVisitV8), findsOneWidget);
-      expect(find.text('Belum ada kunjungan mendatang.'), findsOneWidget);
+      // No ticket in the fixture, so Home shows no nearest-visit card.
+      expect(find.byType(PatientHomeVisitV8), findsNothing);
       expect(f.writes, 0);
       await tester.pumpWidget(const SizedBox());
       f.dispose();
@@ -178,12 +177,10 @@ void main() {
       await open(tester, f);
       final gate = Completer<void>();
       f.mutationGate = gate;
+      // Opening the dialog starts the automatic QR issue; hold its response.
       tester
           .widget<PatientHomeVisitV8>(find.byType(PatientHomeVisitV8))
           .onOpen!();
-      await tester.pumpAndSettle();
-      expect(f.writes, 0);
-      await tester.tap(find.text('Terbitkan QR'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(f.writes, 1);

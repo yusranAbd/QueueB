@@ -315,7 +315,7 @@ void main() {
   );
 
   testWidgets(
-    'Invalid device token stops REST polling and clears the token input',
+    'Rejected device stops REST polling and returns to an empty activation form',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 720);
       tester.view.devicePixelRatio = 1;
@@ -323,20 +323,36 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-      var requests = 0;
+      // Devices are paired only with a one-time activation code; the server
+      // then refuses the snapshot for this device.
+      final device = {
+        'id': '22222222-2222-4222-8222-222222222222',
+        'nama': 'TV Uji',
+        'layananId': _service,
+        'aktif': true,
+      };
+      var paired = false, snapshots = 0;
       final api = QueueApi(
         config: AppConfig(
           apiBaseUrl: 'http://localhost:3000/api/v1',
           realtime: false,
         ),
         client: MockClient((r) async {
-          if (r.url.path.endsWith('/display/sesi')) {
-            return http.Response('{}', 401);
+          final path = r.url.path;
+          if (path.endsWith('/display/pairing')) {
+            paired = true;
+            return http.Response(jsonEncode(device), 200);
           }
-          requests++;
-          expect(r.headers['x-display-token'], 'a' * 64);
-          expect(r.url.hasQuery, isFalse);
-          return http.Response(jsonEncode({'message': 'Forbidden'}), 403);
+          if (path.endsWith('/display/sesi')) {
+            return paired
+                ? http.Response(jsonEncode(device), 200)
+                : http.Response('{}', 401);
+          }
+          if (path.endsWith('/snapshot')) {
+            snapshots++;
+            return http.Response(jsonEncode({'message': 'Forbidden'}), 403);
+          }
+          return http.Response('{}', 404);
         }),
       );
       await tester.pumpWidget(
@@ -345,22 +361,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Konfigurasi lanjutan (token existing)'));
-      await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'ID layanan'),
-        _service,
+        find.widgetWithText(TextFormField, 'Kode Aktivasi'),
+        '123456789012',
       );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Token perangkat'),
-        'a' * 64,
-      );
-      await tester.ensureVisible(find.text('Hubungkan display'));
-      await tester.tap(find.text('Hubungkan display'));
+      await tester.tap(find.text('Hubungkan Perangkat'));
       await tester.pumpAndSettle();
       expect(find.text('Akses display ditolak'), findsOneWidget);
+      final rejectedReads = snapshots;
+      expect(rejectedReads, greaterThan(0));
       await tester.pump(const Duration(seconds: 45));
-      expect(requests, 1);
+      expect(snapshots, rejectedReads);
       await dismissFeedback(tester);
       await tester.ensureVisible(find.text('Ganti perangkat'));
       await tester.tap(find.text('Ganti perangkat'));
@@ -368,20 +379,11 @@ void main() {
       expect(
         tester
             .widget<TextFormField>(
-              find.widgetWithText(TextFormField, 'Token perangkat'),
+              find.widgetWithText(TextFormField, 'Kode Aktivasi'),
             )
             .controller!
             .text,
         isEmpty,
-      );
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, 'ID layanan'),
-            )
-            .controller!
-            .text,
-        _service,
       );
       await tester.pumpWidget(const SizedBox());
       api.dispose();

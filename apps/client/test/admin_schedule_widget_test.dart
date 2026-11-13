@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:queueb_client/src/admin.dart';
+import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_data.dart';
 import 'package:queueb_client/src/admin_dashboard.dart';
 import 'package:queueb_client/src/admin_practice_form.dart';
@@ -48,8 +49,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // Not every module is a sidebar entry any more; select it by its title.
   Future<void> navigate(WidgetTester tester, String title) async {
-    await tester.tap(find.widgetWithText(ListTile, title));
+    final index = [for (var i = -1; i < 10; i++) i]
+        .firstWhere((i) => adminSectionTitle(i) == title);
+    tester.widget<AdminNavigation>(find.byType(AdminNavigation)).onSelect!(
+      index,
+    );
     await tester.pumpAndSettle();
   }
 
@@ -129,6 +135,9 @@ void main() {
             .read<PracticeScheduleCubit>();
         expect(find.text('Dari tanggal'), findsNothing);
         expect(find.text('Sampai tanggal'), findsNothing);
+        // The fixture session is not today; the agenda opens on today.
+        await tester.tap(find.widgetWithText(FilterChip, 'Semua tanggal'));
+        await tester.pumpAndSettle();
         await adminAction(tester, 'Ubah');
         await tester.tap(find.byType(SwitchListTile));
         f.writeFailure = reject ? 409 : null;
@@ -252,6 +261,10 @@ void main() {
           .read<PracticeScheduleCubit>();
       await navigate(tester, 'Slot konsultasi');
       expect(f.calls.any((r) => r.url.path.endsWith('/slot-praktik')), isFalse);
+      // The fixture session is in the past, which the slot page lists under
+      // history.
+      await tester.tap(find.text('Riwayat / nonaktif'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Penyakit Dalam').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('dr. Indah Suci Permatasari').last);

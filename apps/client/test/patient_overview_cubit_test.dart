@@ -12,6 +12,8 @@ import 'package:timezone/data/latest.dart' as tz;
 
 import 'patient_cubit_fixture.dart';
 
+import 'package:queueb_client/src/patient_home_v8.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(tz.initializeTimeZones);
@@ -195,8 +197,8 @@ void main() {
       expect(owner.state.load, PatientLoad.loaded);
       expect(find.text('Ambil Antrean'), findsWidgets);
       expect(find.text('Janji Temu'), findsWidgets);
-      expect(find.text('KUNJUNGAN TERDEKAT'), findsOneWidget);
-      expect(find.text('Belum ada kunjungan mendatang.'), findsOneWidget);
+      // No visit in the fixture, so the nearest-visit card is not shown.
+      expect(find.byType(PatientHomeVisitV8), findsNothing);
       final count = f.calls.length;
       (element as StatefulElement).markNeedsBuild();
       await tester.pumpAndSettle();

@@ -119,8 +119,12 @@ void main() {
       await open(tester);
       expect(find.byType(AdminDashboard), findsOneWidget);
       expect(find.text('Penyakit Dalam'), findsOneWidget);
-      expect(find.text('1 aktif'), findsNWidgets(3));
-      expect(find.text('0 aktif'), findsOneWidget);
+      // Totals come from the real catalog: one active clinic, no invented rows.
+      expect(find.text('1 layanan aktif'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-service-clinic')),
+        findsOneWidget,
+      );
       expect(find.text('128'), findsNothing);
       expect(find.textContaining('14 menit'), findsNothing);
       expect(find.textContaining('Statistik pasien'), findsNothing);
@@ -141,12 +145,8 @@ void main() {
     'failed catalog shows unavailable metrics rather than fabricated zero totals',
     (tester) async {
       await open(tester, fail: true);
-      expectUnknownMasterMetrics([
-        '/layanan',
-        '/dokter',
-        '/loket',
-        '/jadwal-praktik',
-      ]);
+      expectUnknownOperationalMetrics();
+      expect(find.text('Data layanan belum tersedia.'), findsOneWidget);
       expect(
         find.text(
           'Layanan sedang mengalami gangguan. Muat ulang data dan coba lagi nanti.',

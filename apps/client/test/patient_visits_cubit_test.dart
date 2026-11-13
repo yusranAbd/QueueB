@@ -250,6 +250,8 @@ void main() {
     () async {
       await ticket.refresh();
       final other = PatientTicketCubit(f.repository, 'ticket');
+      // Both owners have loaded the issuable ticket before racing.
+      await other.refresh();
       final gate = Completer<void>();
       f.mutationGate = gate;
       final started = f.mutationStarted = Completer<void>();

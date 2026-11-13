@@ -18,11 +18,15 @@ import 'package:queueb_client/src/features/patient/application/patient_booking_c
 import 'package:queueb_client/src/patient_ui.dart';
 import 'package:queueb_client/src/patient_reservations.dart';
 
+import 'patient_reservation_helpers.dart';
 import 'patient_reservations_test.dart' show ReservationBackend;
 import 'admin_slot_cubit_test.dart' show SlotFixture;
 
 void main() {
   setUpAll(tz.initializeTimeZones);
+  // Sessions start three days from now, one hour apart, so every one of
+  // them can still receive slots and they sort deterministically.
+  final sessionStart = DateTime.now().toUtc().add(const Duration(days: 3));
   Future<AdminCatalogRepository> repo() async {
     final api =
         QueueApi(
@@ -57,7 +61,15 @@ void main() {
                           for (var i = 0; i < 13; i++)
                             {
                               'id': 'p-$i',
-                              'tanggal': '2026-11-03',
+                              'tanggal': sessionStart
+                                  .toIso8601String()
+                                  .substring(0, 10),
+                              'mulaiPada': sessionStart
+                                  .add(Duration(hours: i))
+                                  .toIso8601String(),
+                              'selesaiPada': sessionStart
+                                  .add(Duration(hours: i, minutes: 30))
+                                  .toIso8601String(),
                               'aktif': true,
                               'dokterLayanan': {'layananId': 'service'},
                               'loket': {'nama': 'Ruang $i'},
@@ -105,7 +117,7 @@ void main() {
       );
       await t.pumpAndSettle();
       expect(t.takeException(), isNull);
-      for (final text in ['Tutup', 'Sebelumnya', 'Selanjutnya']) {
+      for (final text in ['Sebelumnya', 'Selanjutnya']) {
         expect(t.getRect(find.text(text).last).right, lessThanOrEqualTo(320));
       }
     });
@@ -123,17 +135,27 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    await t.tap(find.byType(DropdownButtonFormField<String>));
+    // Step 1: choose the service card, then go to "Dokter & Jadwal".
+    await t.ensureVisible(find.text('Layanan').last);
     await t.pumpAndSettle();
-    await t.tap(find.text('Layanan · S').last);
+    await t.tap(find.text('Layanan').last);
     await t.pumpAndSettle();
-    await t.tap(find.text('3. Dokter'));
+    await t.ensureVisible(find.text('Selanjutnya'));
     await t.pumpAndSettle();
+    await t.tap(find.text('Selanjutnya'));
+    await t.pumpAndSettle();
+    // Every doctor is listed; sessions are paged six at a time.
+    await t.ensureVisible(find.text('Dokter 12'));
     expect(find.text('Dokter 12'), findsOneWidget);
-    await t.tap(find.text('4. Jadwal & Slot'));
-    await t.pumpAndSettle();
-    expect(find.text('Ruang: Ruang 12'), findsOneWidget);
-    expect(find.text('Tambah slot'), findsNWidgets(13));
+    expect(find.text('13 sesi aktif'), findsOneWidget);
+    expect(find.text('Tambah slot'), findsNWidgets(6));
+    for (var page = 0; page < 2; page++) {
+      await t.ensureVisible(find.byTooltip('Halaman berikutnya'));
+      await t.tap(find.byTooltip('Halaman berikutnya'));
+      await t.pumpAndSettle();
+    }
+    expect(find.textContaining('Ruang: Ruang 12'), findsOneWidget);
+    expect(find.text('Tambah slot'), findsOneWidget);
   });
   testWidgets('home mouse swipe retains controller and selected tab', (
     t,
@@ -198,15 +220,15 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.widgetWithText(NavigationDestination, 'Reservasi'));
       await t.pumpAndSettle();
-      await t.tap(find.byType(FloatingActionButton));
-      await t.pumpAndSettle();
+      await openCreateReservation(t);
       await t.tap(find.text('Jadwal Terdekat'));
       await t.pumpAndSettle();
       expect(find.byType(ReservationDoctorChoice), findsOneWidget);
       await t.tap(find.text('Pilih Jadwal'));
       await t.pumpAndSettle();
+      // The schedule now opens on the doctor detail page.
       final cubit = t
-          .element(find.byType(PatientHeading).last)
+          .element(find.text('Konfirmasi Janji'))
           .read<PatientBookingCubit>();
       await t.ensureVisible(find.byTooltip('Kembali').last);
       await t.pumpAndSettle();
@@ -227,6 +249,11 @@ void main() {
   ) async {
     final f = SlotFixture();
     addTearDown(f.dispose);
+    // Desktop width keeps the sidebar (and its setup entry) visible.
+    t.view.physicalSize = const Size(1440, 1000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(
       MaterialApp(
         theme: AdminStyle.theme,
@@ -234,7 +261,7 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    await t.tap(find.text('Kelola Layanan Terpadu'));
+    await t.tap(find.text('Kelola Layanan Terpadu').first);
     await t.pumpAndSettle();
     final setup = t.widget<AdminServiceSetup>(find.byType(AdminServiceSetup));
     final operation = setup.onAction(AdminSetupAction.addSlot, 'clinic', 'a');

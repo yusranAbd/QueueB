@@ -14,6 +14,7 @@ import 'package:timezone/data/latest.dart' as tz;
 
 import 'patient_home_v3_test.dart' show HomeBackend;
 import 'patient_test_navigation.dart';
+import 'patient_reservation_helpers.dart';
 
 class V5Backend extends HomeBackend {
   @override
@@ -100,22 +101,13 @@ void main() {
           final surface = t.widget<Material>(
             find.byKey(const ValueKey('patient-nearest-visit')),
           );
-          expect(surface.color, Colors.white.withValues(alpha: .88));
+          expect(surface.color, const Color(0xffdbe5ff));
           expect(surface.shape, isA<RoundedRectangleBorder>());
           expect(t.takeException(), isNull);
           await nav(t, 'Riwayat');
-          final fab = find.byType(FloatingActionButton);
-          expect(fab, findsOneWidget);
-          expect(
-            t.getBottomLeft(fab).dy,
-            lessThanOrEqualTo(t.getTopLeft(find.byType(NavigationBar)).dy),
-          );
-          final scaffold = t.widget<Scaffold>(
-            find.ancestor(of: fab, matching: find.byType(Scaffold)).first,
-          );
-          expect(scaffold.floatingActionButton, isNotNull);
-          await t.tap(fab);
-          await t.pumpAndSettle();
+          // The list ends with a full-width create button (no FAB).
+          expect(find.byType(FloatingActionButton), findsNothing);
+          await openCreateReservation(t);
           for (final label in ['Cari Dokter', 'Jadwal Terdekat']) {
             expect(find.text(label), findsOneWidget);
           }
@@ -165,7 +157,8 @@ void main() {
         });
       }
       await launch(t, b, const Size(320, 568));
-      expect(find.text('Belum ada kunjungan mendatang.'), findsOneWidget);
+      // A cancelled ticket is history, so no upcoming-visit card is shown.
+      expect(find.byType(PatientHomeVisitV8), findsNothing);
       await openPatientTickets(t);
       expect(find.byType(ReservationCard).evaluate().length, lessThan(31));
       // Search the reservation projection so the cancelled ticket is selected explicitly.
@@ -187,8 +180,6 @@ void main() {
       expect(b.requests.where((r) => r.$1 == 'POST'), isEmpty);
       await t.tap(find.text('Tutup'));
       await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField), '');
-      await t.pumpAndSettle();
       final scrollable = find.descendant(
         of: find.byKey(const PageStorageKey('reservation-list')),
         matching: find.byWidgetPredicate(
@@ -196,6 +187,11 @@ void main() {
         ),
       );
       final position = t.state<ScrollableState>(scrollable).position;
+      // The search field sits in the list header; return to the top first.
+      position.jumpTo(0);
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField), '');
+      await t.pumpAndSettle();
       for (var step = 0; step < 6; step++) {
         position.jumpTo(position.maxScrollExtent);
         await t.pumpAndSettle();
@@ -203,7 +199,9 @@ void main() {
       final last = find.byType(ReservationCard).last;
       expect(
         t.getBottomLeft(last).dy,
-        lessThan(t.getTopLeft(find.byType(FloatingActionButton)).dy),
+        lessThan(
+          t.getTopLeft(find.byKey(const ValueKey('create-reservation'))).dy,
+        ),
       );
       expect(t.takeException(), isNull);
     },

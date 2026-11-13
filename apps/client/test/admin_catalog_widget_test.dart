@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:queueb_client/src/admin.dart';
+import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_data.dart';
 import 'package:queueb_client/src/admin_dashboard.dart';
 import 'package:queueb_client/src/admin_ui.dart';
@@ -61,7 +62,8 @@ void main() {
             .length,
         2,
       );
-      await tester.tap(find.widgetWithText(ListTile, 'Ruang & loket'));
+      // Rooms are reached through the section API, not a sidebar entry.
+      tester.widget<AdminNavigation>(find.byType(AdminNavigation)).onSelect!(2);
       await tester.pumpAndSettle();
       final room = tester.element(find.byType(AdminDataView)).read<RoomCubit>();
       expect(room.repository, same(clinic.repository));
@@ -81,7 +83,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Kembali'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Dashboard'));
+      await tester.tap(find.text('Dashboard'));
       await tester.pumpAndSettle();
       final dashboard = tester.widget<AdminDashboard>(
         find.byType(AdminDashboard),
@@ -152,7 +154,7 @@ void main() {
       );
       expect(clinic.state.load, CatalogLoadStatus.failure);
       f.failRead = null;
-      await tester.tap(find.widgetWithText(ListTile, 'Dokter'));
+      tester.widget<AdminNavigation>(find.byType(AdminNavigation)).onSelect!(1);
       await tester.pumpAndSettle();
       final doctor = tester
           .element(find.byType(AdminDataView))

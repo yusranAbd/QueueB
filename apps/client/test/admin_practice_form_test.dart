@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:queueb_client/src/admin.dart';
+import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_practice_form.dart';
 import 'package:queueb_client/src/api.dart';
 import 'package:queueb_client/src/config.dart';
@@ -613,7 +614,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Jadwal praktik'));
+      tester.widget<AdminNavigation>(find.byType(AdminNavigation)).onSelect!(4);
       await tester.pumpAndSettle();
       final before = listReads;
       await tester.tap(find.text('Tambah'));

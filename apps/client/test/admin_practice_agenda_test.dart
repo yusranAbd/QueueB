@@ -83,7 +83,7 @@ void main() {
         final c = config(), rows = data(config());
         await mount(t, rows, c);
         expect(find.byType(AdminRowActions), findsNWidgets(6));
-        expect(find.text('18 sesi · Asia/Jakarta'), findsOneWidget);
+        expect(find.text('18 sesi'), findsOneWidget);
         expect(find.textContaining('Dokter 18 '), findsNothing);
         expect(t.takeException(), isNull);
         await t.pumpWidget(const SizedBox());
@@ -106,7 +106,7 @@ void main() {
       expect(find.text('7–12 dari 18 sesi'), findsOneWidget);
       await t.tap(find.byTooltip('Tanggal berikutnya'));
       await t.pumpAndSettle();
-      expect(find.text('12 sesi · Asia/Jakarta'), findsOneWidget);
+      expect(find.text('12 sesi'), findsOneWidget);
       expect(find.byType(AdminRowActions), findsNWidgets(6));
       await t.tap(find.byType(AdminRowActions).first);
       await t.pumpAndSettle();
@@ -116,12 +116,12 @@ void main() {
       expect(dateOnly(edited!['tanggal']), isNot(c.today));
       await t.tap(find.widgetWithText(FilterChip, 'Semua tanggal'));
       await t.pumpAndSettle();
-      expect(find.text('30 sesi · Asia/Jakarta'), findsOneWidget);
+      expect(find.text('30 sesi'), findsOneWidget);
       expect(find.byType(AdminRowActions), findsNWidgets(6));
       expect(rows.map((r) => r['id']).toList(), original);
       await t.tap(find.text('Hari ini'));
       await t.pumpAndSettle();
-      expect(find.text('18 sesi · Asia/Jakarta'), findsOneWidget);
+      expect(find.text('18 sesi'), findsOneWidget);
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
     },

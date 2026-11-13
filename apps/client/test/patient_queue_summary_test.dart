@@ -472,7 +472,7 @@ void main() {
       addTearDown(t.view.resetPhysicalSize);
       addTearDown(t.view.resetDevicePixelRatio);
       final backend = HomeBackend();
-      var total = 42, queueReads = 0;
+      var total = 42, waiting = 31, queueReads = 0;
       final api =
           QueueApi(
               config: AppConfig(
@@ -487,6 +487,7 @@ void main() {
                       batch(
                         r.url.queryParameters['layananId']!.split(','),
                         total: total,
+                        waiting: waiting,
                         date: r.url.queryParameters['tanggal']!,
                       ),
                     ),
@@ -517,7 +518,9 @@ void main() {
       final host = t.state(find.byType(PatientPage));
       final welcome = t.widget(find.byType(PatientHomeWelcomeV8));
       final before = queueReads;
-      total = 43;
+      // Home cards show the waiting count, so change it with the event.
+      total = 44;
+      waiting = 43;
       socket.fire('patient:updated', {
         'versiSkema': 1,
         'jenis': 'ANTREAN',

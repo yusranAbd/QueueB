@@ -43,10 +43,12 @@ class DoctorBackend extends FakeBackend {
               'id': day,
               'tanggal': '${day}T00:00:00.000Z',
               'mulaiPada': '${day}T02:00:00Z',
-              'selesaiPada': '${day}T04:00:00Z',
+              // Ends 23:59 WIB so "today" stays reservable whenever tests run.
+              'selesaiPada': '${day}T16:59:00Z',
               'loket': room,
               'dokterLayanan': {
                 'dokterId': uid,
+                'layananId': uid,
                 'dokter': {'id': uid},
               },
             },
@@ -107,11 +109,16 @@ void main() {
     return api;
   }
 
+  // Each practice day is a labelled chip ("Senin, 16 November 2026").
   Finder practiceDay(String date) => find.byWidgetPredicate(
     (w) =>
         w is Semantics &&
-        w.properties.button == true &&
+        w.properties.selected != null &&
         (w.properties.label?.contains(patientDate(date)) ?? false),
+  );
+  // Remaining capacity is announced in each slot's tooltip.
+  Finder remaining(int count) => find.byWidgetPredicate(
+    (w) => w is Tooltip && (w.message?.endsWith('Sisa slot $count') ?? false),
   );
   Future<void> detail(WidgetTester tester) async {
     await press(tester, find.text('Pilih Jadwal'));
@@ -153,7 +160,7 @@ void main() {
       await slot(tester);
       expect(practiceDay(backend.today), findsOneWidget);
       expect(practiceDay(backend.tomorrow), findsOneWidget);
-      expect(find.text('09:00 – 09:15'), findsOneWidget);
+      expect(find.text('09:00–09:15'), findsOneWidget);
       expect(find.text('09:00'), findsOneWidget);
       await press(tester, find.text('09:00'));
       expect(
@@ -235,25 +242,27 @@ void main() {
     (tester) async {
       final backend = DoctorBackend()..emptySchedule = true;
       await open(tester, backend);
-      await detail(tester);
+      // Without a practice date the doctor card says so and cannot be opened.
+      expect(find.text('Belum ada jadwal praktik mendatang.'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Pilih Jadwal'),
+            )
+            .onPressed,
+        isNull,
+      );
       expect(practiceDay(backend.today), findsNothing);
-      await press(tester, find.text('Muat ulang jadwal'));
-      expect(
-        find.textContaining('Dokter belum memiliki jadwal'),
-        findsOneWidget,
-      );
       backend.failSchedule = true;
-      await press(tester, find.text('Muat ulang jadwal'));
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 4000));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining(
-          'Layanan sedang mengalami gangguan. Muat ulang data dan coba lagi nanti.',
-        ),
-        findsOneWidget,
-      );
-      backend.failSchedule = false;
-      await press(tester, find.text('Coba lagi'));
+      await press(tester, find.text('Muat ulang pilihan'));
+      // A failed reload raises the error notice and invents no dates.
+      expect(find.text('Terjadi kesalahan'), findsOneWidget);
+      expect(practiceDay(backend.today), findsNothing);
+      backend
+        ..failSchedule = false
+        ..emptySchedule = false;
+      await press(tester, find.text('Muat ulang pilihan'));
+      expect(find.text('Belum ada jadwal praktik mendatang.'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -265,10 +274,7 @@ void main() {
       await open(tester, backend);
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -800));
       await tester.pumpAndSettle();
-      expect(
-        find.text('Belum ada dokter pada poliklinik ini.'),
-        findsOneWidget,
-      );
+      expect(find.text('Tidak ada dokter yang sesuai.'), findsOneWidget);
       backend.emptyDoctors = false;
       await press(tester, find.text('Beranda'));
       await openPatientCatalog(tester);
@@ -323,7 +329,7 @@ void main() {
             .onPressed,
         isNull,
       );
-      expect(find.text('Sisa slot 0'), findsOneWidget);
+      expect(remaining(0), findsOneWidget);
     },
   );
 
@@ -374,11 +380,14 @@ void main() {
             .$3,
         {'slotPraktikId': uid},
       );
-      await press(tester, find.text('Sisa slot 0'));
+      await press(tester, remaining(0));
       expect(
         tester
             .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Sisa slot 0'),
+              find.descendant(
+                of: remaining(0),
+                matching: find.byType(OutlinedButton),
+              ),
             )
             .onPressed,
         isNull,

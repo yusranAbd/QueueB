@@ -228,7 +228,7 @@ void main() {
   }
 
   testWidgets(
-    'live panel shows multiple active rooms and detail only, without patient identity',
+    'live panel switches between active rooms and names the patient',
     (tester) async {
       final config = AppConfig(
             apiBaseUrl: 'http://localhost:3000/api/v1',
@@ -266,23 +266,18 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, 'M-002'));
+      // The doctor portal shows the called patient's name for the first room.
+      expect(find.text('RAHASIA'), findsOneWidget);
+      // Several active rooms are switched with a dropdown.
+      await tester.tap(find.byTooltip('Pilih antrean aktif'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('M-002 · M2').last);
       await tester.pumpAndSettle();
       expect(find.text('Dilayani'), findsOneWidget);
       expect(find.text('M2 · Antrean'), findsOneWidget);
+      // No name on this ticket: say so instead of inventing one.
+      expect(find.text('Nama belum tersedia'), findsOneWidget);
       expect(find.text('RAHASIA'), findsNothing);
-      await tester.tap(find.text('Lihat detail antrean'));
-      await tester.pumpAndSettle();
-      expect(find.text('Detail antrean M-002'), findsOneWidget);
-      expect(find.text('Ruang Dua'), findsOneWidget);
-      expect(
-        find.text(
-          'Nama pasien, identitas dan catatan klinis tidak disediakan pada portal ini.',
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Tutup'));
-      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       status.dispose();
     },

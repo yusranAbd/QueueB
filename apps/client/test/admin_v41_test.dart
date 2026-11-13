@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:queueb_client/src/admin_data.dart';
 import 'package:queueb_client/src/admin_display.dart';
+import 'package:queueb_client/src/admin_dashboard_header.dart';
 import 'package:queueb_client/src/admin_navigation.dart';
 import 'package:queueb_client/src/admin_schema.dart';
 import 'package:queueb_client/src/admin_schedules.dart';
@@ -268,60 +269,59 @@ void main() {
     const Size(768, 1024),
     const Size(390, 844),
   ]) {
-    testWidgets('minimal ADMIN header, profile footer and logout at $size', (
-      t,
-    ) async {
-      t.view.physicalSize = size;
-      t.view.devicePixelRatio = 1;
-      final b = AdminV41Backend();
-      final api = apiFor(b);
-      addTearDown(() async {
-        await t.pumpWidget(const SizedBox());
-        api.dispose();
-        t.view.resetPhysicalSize();
-        t.view.resetDevicePixelRatio();
-      });
-      await t.pumpWidget(QueueBApp(api: api));
-      await t.pumpAndSettle();
-      final bar = find.byType(AppBar);
-      expect(t.getSize(bar).height, 52);
-      expect(
-        find.descendant(of: bar, matching: find.byType(CircleAvatar)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: bar, matching: find.text('Akun ADMIN')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: bar, matching: find.byTooltip('Profil akun')),
-        findsNothing,
-      );
-      expect(find.byTooltip('Keluar akun'), findsOneWidget);
-      if (size.width < 960) {
-        await t.tap(find.widgetWithText(OutlinedButton, 'Menu administrasi'));
+    testWidgets(
+      'ADMIN header account menu opens profile and logs out at $size',
+      (t) async {
+        t.view.physicalSize = size;
+        t.view.devicePixelRatio = 1;
+        final b = AdminV41Backend();
+        final api = apiFor(b);
+        addTearDown(() async {
+          await t.pumpWidget(const SizedBox());
+          api.dispose();
+          t.view.resetPhysicalSize();
+          t.view.resetDevicePixelRatio();
+        });
+        await t.pumpWidget(QueueBApp(api: api));
         await t.pumpAndSettle();
-      }
-      expect(find.byType(AdminNavigation), findsOneWidget);
-      final profile = find.byTooltip('Profil akun');
-      await t.scrollUntilVisible(
-        profile,
-        200,
-        scrollable: find.descendant(
-          of: find.byType(AdminNavigation),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await t.tap(profile);
-      await t.pumpAndSettle();
-      expect(find.text('Profil Saya'), findsOneWidget);
-      await t.tap(find.byType(BackButton));
-      await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Keluar akun'));
-      await t.pumpAndSettle();
-      expect(api.user, isNull);
-      expect(t.takeException(), isNull);
-    });
+        final header = find.byType(AdminPortalHeader);
+        expect(header, findsOneWidget);
+        expect(t.getSize(header).height, greaterThanOrEqualTo(64));
+        if (size.width < 960) {
+          await t.tap(find.byTooltip('Menu administrasi'));
+          await t.pumpAndSettle();
+        }
+        expect(find.byType(AdminNavigation), findsOneWidget);
+        if (size.width < 960) {
+          // Choosing a module closes the compact navigation menu.
+          await t.tap(
+            find.descendant(
+              of: find.byType(AdminNavigation),
+              matching: find.text('Dashboard'),
+            ),
+          );
+          await t.pumpAndSettle();
+        }
+        // Profile and logout live in the header account menu.
+        final account = find.descendant(
+          of: header,
+          matching: find.byWidgetPredicate((w) => w is PopupMenuButton),
+        );
+        await t.tap(account);
+        await t.pumpAndSettle();
+        await t.tap(find.text('Profil Saya'));
+        await t.pumpAndSettle();
+        expect(find.text('Profil Saya'), findsWidgets);
+        await t.tap(find.byType(BackButton));
+        await t.pumpAndSettle();
+        await t.tap(account);
+        await t.pumpAndSettle();
+        await t.tap(find.text('Keluar Akun'));
+        await t.pumpAndSettle();
+        expect(api.user, isNull);
+        expect(t.takeException(), isNull);
+      },
+    );
   }
   testWidgets('open menu retains action identity when rows refresh', (t) async {
     var changed = false;

@@ -73,54 +73,59 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.textContaining('Administrator Pengujian!'), findsOneWidget);
-        expect(find.text('Asia/Jayapura'), findsOneWidget);
-        expect(find.text('0 aktif'), findsOneWidget);
-        expect(find.text('2 aktif'), findsOneWidget);
-        expect(find.text('4 aktif'), findsOneWidget);
-        expect(find.text('Nonaktif'), findsOneWidget);
+        expect(find.text('Dashboard Operasional'), findsOneWidget);
+        // Service time zone comes from config, shown as its local label.
+        expect(find.textContaining('· WIT'), findsOneWidget);
+        // The only clinic is inactive: no invented service cards or totals.
+        expect(find.text('0 layanan aktif'), findsOneWidget);
+        expect(find.text('Belum ada layanan aktif.'), findsOneWidget);
+        expect(find.textContaining('admin-service-'), findsNothing);
         expect(find.text('128'), findsNothing);
         expect(find.textContaining('%'), findsNothing);
         expect(find.text('Notifikasi'), findsNothing);
         expect(find.byType(TextField), findsNothing);
-        final table = tester.widget<DataTable>(find.byType(DataTable));
-        expect(table.rows, hasLength(1));
-        expect(table.dataRowMaxHeight, greaterThanOrEqualTo(46));
+        // Without today's report the activity table is not faked.
+        expect(find.byType(DataTable), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
   }
-  testWidgets(
-    'Welcome uses a safe fallback; reload and KPI navigation stay functional',
-    (tester) async {
-      var reloaded = 0, selected = -1;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AdminStyle.theme,
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: AdminDashboard(
-                catalog: catalog,
-                config: config,
-                loading: false,
-                onSelect: (v) => selected = v,
-                onRefresh: () => reloaded++,
-                administratorName: '  ',
-              ),
+  testWidgets('Reload and service-card navigation stay functional', (
+    tester,
+  ) async {
+    var reloaded = 0, selected = -1;
+    final active = {
+      ...catalog,
+      '/layanan': [
+        {'id': 'c', 'nama': 'Poli Mata', 'aktif': true},
+      ],
+    };
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminStyle.theme,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AdminDashboard(
+              catalog: active,
+              config: config,
+              loading: false,
+              onSelect: (v) => selected = v,
+              onRefresh: () => reloaded++,
+              administratorName: '  ',
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Administrator!'), findsOneWidget);
-      await tester.ensureVisible(find.byTooltip('Muat ulang dashboard'));
-      await tester.tap(find.byTooltip('Muat ulang dashboard'));
-      expect(reloaded, 1);
-      await tester.ensureVisible(find.text('Ruang / Loket'));
-      await tester.tap(find.text('Ruang / Loket'));
-      expect(selected, 2);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Poli Mata'), findsOneWidget);
+    await tester.ensureVisible(find.text('Muat ulang'));
+    await tester.tap(find.text('Muat ulang'));
+    expect(reloaded, 1);
+    await tester.ensureVisible(find.byTooltip('Kelola ruang/loket'));
+    await tester.tap(find.byTooltip('Kelola ruang/loket'));
+    expect(selected, 2);
+  });
   testWidgets(
     'Dashboard sidebar groups modules while retaining direct navigation',
     (tester) async {
@@ -134,14 +139,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // The simplified sidebar keeps only the operational modules; slots and
+      // reports are reached from their parent pages and the dashboard.
+      expect(find.text('Dashboard'), findsOneWidget);
       expect(find.text('Dokter'), findsOneWidget);
-      expect(find.text('Slot konsultasi'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Manajemen Display'), 150);
       expect(find.text('Manajemen Display'), findsOneWidget);
-      expect(find.text('Operasional'), findsOneWidget);
-      expect(find.text('Laporan & Aktivitas'), findsOneWidget);
+      expect(find.text('Slot konsultasi'), findsNothing);
       expect(find.byType(ExpansionTile), findsNothing);
-      await tester.scrollUntilVisible(find.text('Dokter'), -150);
       await tester.tap(find.text('Dokter'));
       expect(selected, 1);
     },
