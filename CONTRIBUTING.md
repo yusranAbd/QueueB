@@ -16,7 +16,7 @@ QueueB Hospital mengelola reservasi, tiket/QR, antrean pelayanan, pemantauan dok
 
 Flutter Web melayani browser; Flutter Android melayani perangkat/emulator. NestJS menyediakan REST dengan prefix `/api/v1` dan Socket.IO pada origin backend yang sama. PostgreSQL menyimpan data; Prisma mengakses database. Event realtime memicu rekonsiliasi data melalui REST, bukan menggantikan sumber kebenaran backend.
 
-Panduan ini untuk **laptop baru dengan database kosong dan data sintetis**. Contoh folder tujuan adalah `C:\Workspaces\capstone-B-antrian`. Ganti folder tersebut secara konsisten jika memilih lokasi lain.
+Panduan ini untuk **laptop baru dengan database kosong dan data sintetis**. Contoh folder tujuan adalah `C:\Workspaces\QueueB`. Ganti folder tersebut secara konsisten jika memilih lokasi lain.
 
 **Batas penting:** database development existing `127.0.0.1:5433/capstone_antrean` bukan target instruksi instalasi ini. Jangan menyalin `.env`, kredensial, dump pasien, atau volume database dari komputer pengembang lama. Contoh instalasi baru memakai `127.0.0.1:5434/queueb_local_new` agar targetnya berbeda. Database uji otomatis dibahas terpisah pada Bagian 11.
 
@@ -150,14 +150,14 @@ docker compose version
 
 Pastikan akun GitHub memiliki akses bila repository privat. Gunakan autentikasi GitHub yang sah melalui credential manager/SSH/PAT sesuai kebijakan tim; jangan menaruh token dalam URL clone atau dokumen.
 
-**Direktori awal: `C:\`; hasil clone: `C:\Workspaces\capstone-B-antrian`.**
+**Direktori awal: `C:\`; hasil clone: `C:\Workspaces\QueueB`.**
 
 ```powershell
 Set-Location C:\
 New-Item -ItemType Directory -Path C:\Workspaces -Force | Out-Null
 Set-Location C:\Workspaces
-git clone --branch main https://github.com/yusranAbd/capstone-b-antrian.git
-Set-Location C:\Workspaces\capstone-B-antrian
+git clone --branch main https://github.com/yusranAbd/QueueB.git
+Set-Location C:\Workspaces\QueueB
 git branch --show-current
 git log -1 --oneline
 git status -sb
@@ -170,7 +170,7 @@ Branch yang diharapkan adalah `main`. Acuan panduan ini `2babd18`; `main` dapat 
 ## 5. Struktur Project
 
 ```text
-capstone-B-antrian/
+QueueB/
 ├── .env.example                  Template environment, belum memuat semua opsi
 ├── .env                          Dibuat lokal di laptop tujuan; diabaikan Git
 ├── compose.yml                   Service PostgreSQL 18 dan volume persisten
@@ -218,7 +218,7 @@ Target panduan:
 **Direktori: root repository laptop tujuan. Jalankan penyalinan hanya jika `.env` belum ada.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 if (Test-Path -LiteralPath .env) { throw '.env sudah ada; periksa target, jangan ditimpa.' }
 Copy-Item -LiteralPath .env.example -Destination .env
 code .env
@@ -233,7 +233,7 @@ Jalankan service instance PostgreSQL 18 yang baru melalui Windows **Services**. 
 **Direktori: root repository. Koneksi berikut membuka psql interaktif; password administrator diminta, bukan ditulis dalam perintah.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 psql -h 127.0.0.1 -p 5434 -U postgres -d postgres -W
 ```
 
@@ -253,7 +253,7 @@ CREATE DATABASE queueb_local_new OWNER queueb_local;
 **Direktori: root repository. Verifikasi target dan kondisi kosong sebelum migration pertama.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 psql -h 127.0.0.1 -p 5434 -U queueb_local -d queueb_local_new -W -c "SELECT current_database(), current_user, inet_server_port();"
 psql -h 127.0.0.1 -p 5434 -U queueb_local -d queueb_local_new -W -c "SELECT count(*) AS public_tables FROM information_schema.tables WHERE table_schema='public';"
 ```
@@ -271,7 +271,7 @@ Perintah berikut memakai **`compose run` dengan port loopback eksplisit**. Menur
 **Direktori: root repository, Docker Desktop sudah berjalan. Hanya untuk pembuatan container pertama.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 docker compose --project-name queueb-local-new run -d --name queueb-local-new-postgres --publish 127.0.0.1:5434:5432 postgres
 docker ps --filter name=queueb-local-new-postgres
 docker port queueb-local-new-postgres
@@ -287,7 +287,7 @@ Untuk pemakaian berikutnya, **jangan mengulang pembuatan container** dan jangan 
 **Direktori: root repository, container yang sama sudah pernah dibuat.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 docker start queueb-local-new-postgres
 docker exec queueb-local-new-postgres pg_isready -U queueb_local -d queueb_local_new
 ```
@@ -302,7 +302,7 @@ NestJS membaca `../../.env` lalu `.env` ketika dijalankan dari `apps/api`; Prism
 
 Isi template lokal berikut dengan nilai milik laptop tujuan. Semua nilai `GANTI_...` adalah placeholder, **bukan credential siap pakai**.
 
-**File: `C:\Workspaces\capstone-B-antrian\.env` pada laptop tujuan, bukan file di repository pengembang existing.**
+**File: `C:\Workspaces\QueueB\.env` pada laptop tujuan, bukan file di repository pengembang existing.**
 
 ```dotenv
 NODE_ENV=development
@@ -325,7 +325,7 @@ DISPLAY_FULL_NAMES_APPROVED=false
 **Direktori: root repository. Opsional untuk membuat dua secret acak independen, setelah Node terpasang; simpan hasil hanya pada `.env` lokal.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 node -e "const c=require('node:crypto'); console.log('JWT_ACCESS_SECRET='+c.randomBytes(32).toString('hex')); console.log('JWT_REFRESH_SECRET='+c.randomBytes(32).toString('hex'));"
 ```
 
@@ -352,7 +352,7 @@ Socket.IO tidak membutuhkan port/URL environment tambahan: memakai origin API ya
 **Direktori: `apps/api`. Ini langkah instalasi pada laptop tujuan.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 npm ci
 npx prisma generate
 ```
@@ -366,7 +366,7 @@ Sebelum menulis schema, pastikan identitas dari Bagian 6 benar dan `.env` root m
 **Direktori: `apps/api`.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
 npx prisma migrate status
 ```
@@ -376,7 +376,7 @@ Periksa baris datasource: **database `queueb_local_new`, endpoint `127.0.0.1:543
 **Direktori: `apps/api`, lanjutkan hanya setelah identitas target baru cocok.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 npx prisma migrate deploy
 npx prisma migrate status
 ```
@@ -390,7 +390,7 @@ npx prisma migrate status
 **Direktori: `apps/api`, hanya target baru yang telah dimigrasi dan master-nya masih kosong.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 npx prisma migrate status
 # Periksa lagi datasource queueb_local_new:5434 sebelum baris berikut.
 npm run db:seed
@@ -405,7 +405,7 @@ Khusus seed ini, `dotenv` pada `seed.ts` memakai `override: true`: nilai `.env` 
 **Direktori: `apps/api`, terminal backend khusus.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 npm run start:dev
 ```
 
@@ -414,7 +414,7 @@ Watch mode mengompilasi dan memulai backend. Biarkan terminal ini terbuka. Envir
 **Direktori: root repository, terminal pemeriksaan terpisah.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 Invoke-RestMethod -Uri 'http://localhost:3000/api/v1/health'
 ```
 
@@ -427,7 +427,7 @@ Respons sukses memuat `status: ok`, `service: capstone-antrean-api`, `database: 
 **Direktori: `apps/client`.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 flutter pub get
 flutter doctor -v
 flutter devices
@@ -458,7 +458,7 @@ URL harus HTTP(S), tanpa username/password, query, atau fragment; sertakan prefi
 **Direktori: `apps/client`, terminal frontend khusus; backend sudah sehat.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 flutter run -d chrome --web-hostname localhost --web-port 5173 --dart-define=API_BASE_URL=http://localhost:3000/api/v1 --dart-define=SERVICE_TIME_ZONE=Asia/Jakarta
 ```
 
@@ -471,7 +471,7 @@ Hidupkan AVD melalui Android Studio, atau sambungkan ponsel dengan USB debugging
 **Direktori: `apps/client`. Ganti nilai ID contoh sebelum menjalankan.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 flutter devices
 $queuebDeviceId = 'GANTI_ID_DARI_FLUTTER_DEVICES'
 flutter run -d $queuebDeviceId --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1 --dart-define=SERVICE_TIME_ZONE=Asia/Jakarta
@@ -494,7 +494,7 @@ Manifest debug mengizinkan cleartext HTTP dan aplikasi mendeklarasikan izin Inte
 **Direktori: root repository, terminal C.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 Test-NetConnection -ComputerName localhost -Port 3000
 Invoke-RestMethod -Uri 'http://localhost:3000/api/v1/health'
 ```
@@ -518,7 +518,7 @@ Registrasi aplikasi selalu membuat peran `USER` (`UsersService.create`); body re
 **Direktori: `apps/api`, terminal operator terpisah, hanya target `queueb_local_new:5434` yang sudah diperiksa.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
 npx prisma migrate status
 # Hanya setelah target baru benar:
@@ -604,7 +604,7 @@ Login/registrasi/pairing/master setup menulis data akun/sesi/konfigurasi pada **
 **Direktori: `apps/client`; jalankan setelah dependency siap. Ini perintah untuk developer laptop tujuan, bukan hasil pengujian baru panduan ini.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 flutter analyze
 flutter test
 flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=http://localhost:3000/api/v1 --dart-define=SERVICE_TIME_ZONE=Asia/Jakarta
@@ -622,7 +622,7 @@ Unit test memakai dependency/mocks. Untuk mencegah kesalahan target, gunakan URL
 **Direktori: `apps/api`, terminal unit test tersendiri.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 $env:DATABASE_URL = 'postgresql://invalid:invalid@127.0.0.1:1/blocked_unit_test'
 npm run test -- --runInBand
 npm run lint
@@ -643,7 +643,7 @@ Setelah operator membuktikan database test yang baru dan kosong, gunakan termina
 **Direktori: `apps/api`, terminal test terisolasi laptop tujuan.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\api
+Set-Location C:\Workspaces\QueueB\apps\api
 $env:DATABASE_URL = 'postgresql://GANTI_USER_TEST:GANTI_PASSWORD_TEST_URL_ENCODED@127.0.0.1:5433/capstone_antrean_test?schema=public'
 npx prisma migrate status
 # Hanya database test BARU dan identitas yang telah cocok:
@@ -687,7 +687,7 @@ Runner memverifikasi database/migration, membuat fixture, dan memeriksa fingerpr
 **Direktori: root repository; diagnostik read-only Windows.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 Get-NetTCPConnection -State Listen -LocalPort 3000,5173 -ErrorAction SilentlyContinue |
     Select-Object LocalAddress, LocalPort, OwningProcess
 Test-NetConnection -ComputerName localhost -Port 3000
@@ -704,7 +704,7 @@ Gunakan jaringan Private yang dipercaya. Database tetap hanya diakses backend se
 **Direktori: root repository pada komputer host.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 Get-NetIPConfiguration
 Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue |
     Select-Object LocalAddress, LocalPort, OwningProcess
@@ -723,7 +723,7 @@ Restart backend. Untuk menyajikan frontend development ke browser LAN:
 **Direktori: `apps/client`, terminal frontend; contoh IP wajib diganti.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 flutter run -d web-server --web-hostname 0.0.0.0 --web-port 5173 --dart-define=API_BASE_URL=http://192.168.1.20:3000/api/v1 --dart-define=SERVICE_TIME_ZONE=Asia/Jakarta
 ```
 
@@ -736,7 +736,7 @@ Jika firewall memblokir akses yang memang diperlukan, izinkan aplikasi/port 3000
 **Direktori: root repository, PowerShell administrator laptop tujuan.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 New-NetFirewallRule -DisplayName 'QueueB Local Development' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000,5173 -Profile Private -RemoteAddress LocalSubnet
 ```
 
@@ -761,7 +761,7 @@ Jangan menambahkan port PostgreSQL ke rule ini. Jangan mematikan firewall atau m
 **Direktori: root repository, sebelum menarik perubahan.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 git status -sb
 git diff --stat
 # Jalankan hanya setelah memastikan pekerjaan lokal aman dan tidak tertimpa:
@@ -773,7 +773,7 @@ Jika pull ditolak karena perubahan lokal atau branch divergen, hentikan dan sele
 **Direktori: `apps/client`, contoh pemeriksaan rutin lokal.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian\apps\client
+Set-Location C:\Workspaces\QueueB\apps\client
 dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
@@ -791,7 +791,7 @@ Backend unit/lint/build dan build Web/APK menggunakan perintah Bagian 11. CI exi
 **Direktori: root repository, hanya bila memakai container baru Bagian 6.3.**
 
 ```powershell
-Set-Location C:\Workspaces\capstone-B-antrian
+Set-Location C:\Workspaces\QueueB
 docker stop queueb-local-new-postgres
 ```
 

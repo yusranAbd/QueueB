@@ -59,7 +59,7 @@ Tidak ada perubahan backend, schema/migration, Queue Engine, mode poliklinik, au
 
 ## F. Git Status
 
-Baseline `9c073c4562e3b6f868c14eb85c861498c579788a`, branch `main`. Fetch preflight menunjukkan ahead/behind `0/0`, tanpa commit baru setelah Tahap 2B. [CI baseline 2B](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40698236235) telah diperiksa melalui GitHub CLI dan sukses. Commit/push tahap ini memakai direct-to-main, staging eksplisit file tugas, pemeriksaan staged diff/hash/remote, serta fast-forward tanpa force. SHA dan status CI terbaru dilaporkan pada hasil akhir setelah push.
+Baseline `9c073c4562e3b6f868c14eb85c861498c579788a`, branch `main`. Fetch preflight menunjukkan ahead/behind `0/0`, tanpa commit baru setelah Tahap 2B. [CI baseline 2B](https://github.com/yusranAbd/QueueB/actions/runs/40698236235) telah diperiksa melalui GitHub CLI dan sukses. Commit/push tahap ini memakai direct-to-main, staging eksplisit file tugas, pemeriksaan staged diff/hash/remote, serta fast-forward tanpa force. SHA dan status CI terbaru dilaporkan pada hasil akhir setelah push.
 
 ## G. Next Step
 

@@ -1,6 +1,6 @@
 # Tahap 2B — Cubit penjadwalan ADMIN
 
-Baseline: `346b62a` pada `main` (Tahap 2A). CI baseline telah diperiksa melalui GitHub CLI dan sukses: [run 40672411769](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40672411769).
+Baseline: `346b62a` pada `main` (Tahap 2A). CI baseline telah diperiksa melalui GitHub CLI dan sukses: [run 40672411769](https://github.com/yusranAbd/QueueB/actions/runs/40672411769).
 
 ## Hasil dan batas implementasi
 

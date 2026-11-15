@@ -64,7 +64,7 @@ Verifikasi manual browser, perangkat Android, live provisioning/assignment/RBAC,
 
 ## F. Git Status
 
-Baseline `f41fd97b8cbc0a098ab5c608ba812d2ae760ae99`, branch `main`, ahead/behind preflight `0/0`, tanpa commit baru setelah 2C. [CI baseline 2C](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40705514173) diverifikasi lewat GitHub CLI dan sukses. Commit tahap ini memakai staging eksplisit 11 file terkait dan pemeriksaan hash/staged diff/remote; push fast-forward tanpa force. SHA baru dan status CI dilaporkan pada hasil akhir setelah push.
+Baseline `f41fd97b8cbc0a098ab5c608ba812d2ae760ae99`, branch `main`, ahead/behind preflight `0/0`, tanpa commit baru setelah 2C. [CI baseline 2C](https://github.com/yusranAbd/QueueB/actions/runs/40705514173) diverifikasi lewat GitHub CLI dan sukses. Commit tahap ini memakai staging eksplisit 11 file terkait dan pemeriksaan hash/staged diff/remote; push fast-forward tanpa force. SHA baru dan status CI dilaporkan pada hasil akhir setelah push.
 
 ## G. Next Step
 

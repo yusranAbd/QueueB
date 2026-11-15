@@ -167,7 +167,7 @@ Validasi lokal menyertakan file dokter historis yang dilindungi dan tidak di-com
 
 ### Git & CI
 
-Commit implementasi `2dbc63ac654002e99a1a6fabf265e6336f9c0481` telah dipush fast-forward ke `origin/main`; remote diverifikasi sama. [CI exact SHA](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40938080912) **PASS**: Detect Projects, Flutter Checks dan NestJS Checks; formatting/analyze, Flutter regression, API lint/unit/build selesai sukses. Backend CI: 679 unit PASS. SDK CI: Flutter 3.47.8 / Dart 3.13.7.
+Commit implementasi `2dbc63ac654002e99a1a6fabf265e6336f9c0481` telah dipush fast-forward ke `origin/main`; remote diverifikasi sama. [CI exact SHA](https://github.com/yusranAbd/QueueB/actions/runs/40938080912) **PASS**: Detect Projects, Flutter Checks dan NestJS Checks; formatting/analyze, Flutter regression, API lint/unit/build selesai sukses. Backend CI: 679 unit PASS. SDK CI: Flutter 3.47.8 / Dart 3.13.7.
 
 Working tree tetap memiliki empat perubahan historis yang dilindungi serta untracked lama; semuanya di luar commit migrasi. Enam fingerprint tetap sama setelah commit/push. Tidak ada branch/worktree/PR, force push atau deployment. Finalisasi ini hanya mengubah laporan, metadata T31 dan bukti CI; SHA/CI head dokumentasi diperiksa lagi dan dilaporkan pada pesan akhir.
 

@@ -23,7 +23,7 @@ Rekomendasi untuk R1–R3:
 | Branch | `main` |
 | HEAD lokal dan origin/main setelah fetch | `2babd1860b9b80426ecfffaf408b7bd7a24d9110`, 0 ahead / 0 behind |
 | Pemeriksaan akhir ref remote | HEAD lokal tetap `2babd18`; origin/main kemudian `17e8653b82ea25dc2f14ec5e6c1a8da08ec0fc77`, lokal behind 1. Delta hanya `CONTRIBUTING.md` (`Update CONTRIBUTING.md`), tidak ada perubahan source routing. Tidak melakukan pull/merge; R1 wajib preflight ulang |
-| CI baseline | [CI 40843308000 sukses untuk SHA tersebut](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40843308000) |
+| CI baseline | [CI 40843308000 sukses untuk SHA tersebut](https://github.com/yusranAbd/QueueB/actions/runs/40843308000) |
 | Perubahan tracked sebelum audit | README.md, doctor_dashboard.dart, doctor_visual.dart, doctor_visual_refresh_test.dart; tidak disentuh |
 | Untracked sebelum audit | `apps/web/`, `backups/`, `sql/`, dokumen/illustrasi review dokter, serta `docs/setup/LOCAL_INSTALLATION_GUIDE.md`; dipertahankan |
 | Perubahan yang diizinkan R0 | Hanya dokumen ini; tidak ada stage, commit, push, branch, worktree atau PR |

@@ -1,7 +1,7 @@
 # Public Display — Tahap 5 dan penutup migrasi lima portal
 
 29 Oktober 2026. Baseline aktual `b416a16`, `main` sinkron dengan `origin/main`.
-[CI Tahap 4](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40783447387)
+[CI Tahap 4](https://github.com/yusranAbd/QueueB/actions/runs/40783447387)
 sukses saat preflight. Acuan: [UI QueueB](QUEUEB_UI_UX_GUIDELINES.md),
 [kontrak API](../backend/API_INTEGRATION_GUIDE.md) §7–8, §20, §25, §27–28,
 [multi-monitor existing](PUBLIC_DISPLAY_MULTI_MONITOR.md), serta dokumentasi

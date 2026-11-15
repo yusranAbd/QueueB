@@ -4,7 +4,7 @@ Tanggal eksekusi: **29 Oktober 2026**. Host: Windows; timezone host Asia/Jayapur
 
 ## A. Executive summary
 
-Baseline `01c9327914ed8b021bb1597af1e4e2d134c48f84` pada `main` cocok dengan `origin/main` saat preflight. [CI baseline sukses](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40790843797).
+Baseline `01c9327914ed8b021bb1597af1e4e2d134c48f84` pada `main` cocok dengan `origin/main` saat preflight. [CI baseline sukses](https://github.com/yusranAbd/QueueB/actions/runs/40790843797).
 
 - Backend: **679 unit + 7 tooling data**, serta **386 integration tests / 31 suite** lulus. Regresi terarah suite profil sesudah barrier diperbaiki: **21/21** lulus, termasuk race password nyata.
 - Runner browser: **13 kelompok PASS** — 12 Browser E2E dan satu Backend Integration untuk pembuatan appointment. Dua jalur HIBRIDA mencapai SELESAI. Chrome menjalankan UI Flutter release terhadap REST, Prisma/PostgreSQL dan Socket.IO nyata.

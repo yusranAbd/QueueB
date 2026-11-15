@@ -1,7 +1,7 @@
 # Portal PETUGAS — state management Tahap 4 terpadu
 
 29 Oktober 2026. Baseline aktual `c04fa07` di `main`, sinkron dengan `origin/main`.
-[CI Tahap 3](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40750740524)
+[CI Tahap 3](https://github.com/yusranAbd/QueueB/actions/runs/40750740524)
 sukses saat preflight. Acuan: [UI QueueB](QUEUEB_UI_UX_GUIDELINES.md),
 [kontrak API](../backend/API_INTEGRATION_GUIDE.md) §4, §6, §8, §17, §26 dan
 proyeksi Portal PETUGAS V4; [Tahap 2E](ADMIN_STATE_MANAGEMENT_STAGE2E.md) dan

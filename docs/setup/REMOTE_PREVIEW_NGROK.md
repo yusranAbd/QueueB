@@ -45,7 +45,7 @@ memulai API pada port yang sama. Script preview tidak membuat API kedua.
 Pada terminal baru khusus preview, set domain yang sama dengan startup:
 
 ```powershell
-cd D:\WorkSpace\Flutter\capstone-B-antrian\apps\api
+cd C:\Workspaces\QueueB\apps\api
 $queuebPreviewUrl = 'https://DOMAIN_NGROK_ANDA'
 # Pertahankan juga origin lain yang sebelumnya sudah disetujui jika ada.
 $env:CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:8085,$queuebPreviewUrl"
@@ -83,7 +83,7 @@ gunakan satu mode Web pada satu waktu.
 Dari root repository, periksa prasyarat tanpa memulai service:
 
 ```powershell
-cd D:\WorkSpace\Flutter\capstone-B-antrian
+cd C:\Workspaces\QueueB
 .\tools\dev\start-ngrok-preview.ps1 `
   -PublicUrl 'https://DOMAIN_NGROK_ANDA' `
   -AllowedEmail 'email-google-yang-diizinkan@example.com' -CheckOnly
@@ -182,11 +182,11 @@ Mode normal tidak memerlukan flag preview, proxy, atau ngrok:
 
 ```powershell
 # Terminal backend normal, tanpa environment tambahan preview:
-cd D:\WorkSpace\Flutter\capstone-B-antrian\apps\api
+cd C:\Workspaces\QueueB\apps\api
 npm run start:dev
 
 # Terminal Flutter normal:
-cd D:\WorkSpace\Flutter\capstone-B-antrian\apps\client
+cd C:\Workspaces\QueueB\apps\client
 flutter run -d chrome --profile --web-port=5173 `
   --dart-define=API_BASE_URL=http://localhost:3000/api/v1
 ```

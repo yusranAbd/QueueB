@@ -1,7 +1,7 @@
 # Portal PASIEN — state management Tahap 3 terpadu
 
 29 Oktober 2026. Baseline `e0d53af` (2E), `main` sinkron saat preflight;
-[CI baseline](https://github.com/yusranAbd/capstone-b-antrian/actions/runs/40726542826)
+[CI baseline](https://github.com/yusranAbd/QueueB/actions/runs/40726542826)
 sukses. Acuan: [UI QueueB](QUEUEB_UI_UX_GUIDELINES.md),
 [API Integration Guide](../backend/API_INTEGRATION_GUIDE.md) §6.4, §11–12, §17, §24.
 Home V6, lima navigasi, desain, mode layanan, serta timezone `Asia/Jakarta` dipertahankan.

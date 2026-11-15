@@ -51,3 +51,16 @@ infra/
 
 scripts/
 ```
+
+## Tim Pengembang
+
+QueueB dikembangkan oleh **Kelompok B** Capstone Project STSI4440,
+Program Studi Sistem Informasi, Universitas Terbuka.
+
+| No. | Nama                       | Peran                          | Kontribusi                                                                                 |
+| --- | -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1   | Yusran Abdullah Arief      | Develop Sistem/Produk          | Coding sistem (frontend, backend, database, TTS, integrasi) dan bahan demo teknis          |
+| 2   | Sindi Rohmawati Setyana    | Koordinator Laporan Akhir      | Proposal, laporan kemajuan, penggabungan dan finalisasi laporan akhir                      |
+| 3   | Lestari Aslindawati Waruwu | Koordinator PPT & Poster       | Presentasi, poster A4, serta pengolahan screenshot/diagram sistem menjadi materi visual    |
+| 4   | Putri Meilani              | Koordinator Video & Dokumentasi | Script dan rekaman demo, editing video, unggah YouTube, dan dokumentasi proses proyek     |
+| 5   | Indah Suci Permatasari     | Koordinator Karya Ilmiah       | Penyusunan karya ilmiah, referensi, dan sitasi                                             |
