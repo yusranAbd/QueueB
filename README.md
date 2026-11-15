@@ -64,3 +64,7 @@ Program Studi Sistem Informasi, Universitas Terbuka.
 | 3   | Lestari Aslindawati Waruwu | Koordinator PPT & Poster       | Presentasi, poster A4, serta pengolahan screenshot/diagram sistem menjadi materi visual    |
 | 4   | Putri Meilani              | Koordinator Video & Dokumentasi | Script dan rekaman demo, editing video, unggah YouTube, dan dokumentasi proses proyek     |
 | 5   | Indah Suci Permatasari     | Koordinator Karya Ilmiah       | Penyusunan karya ilmiah, referensi, dan sitasi                                             |
+
+## Lisensi
+
+Kode sumber QueueB dirilis di bawah [Lisensi MIT](LICENSE).
