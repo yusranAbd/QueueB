@@ -61,16 +61,22 @@ class AdminV41Backend extends FakeBackend {
     'loketId': uid,
     'tanggalMulai': today,
   };
-  Json get slot => {
-    'id': uid,
-    'aktif': true,
-    'mulaiPada': '${today}T01:00:00Z',
-    'selesaiPada': '${today}T01:30:00Z',
-    'kapasitas': 2,
-    'jumlahJanjiTemu': 0,
-    'sisaKapasitas': 2,
-    'tersedia': true,
-  };
+  // Slot selalu di masa depan agar tidak berpindah ke "Riwayat slot"
+  // ketika tes dijalankan pada jam sesi praktik (08:30–12:00 WIB).
+  Json get slot {
+    final start = DateTime.now().toUtc().add(const Duration(minutes: 30));
+    return {
+      'id': uid,
+      'aktif': true,
+      'mulaiPada': start.toIso8601String(),
+      'selesaiPada': start.add(const Duration(minutes: 30)).toIso8601String(),
+      'kapasitas': 2,
+      'jumlahJanjiTemu': 0,
+      'sisaKapasitas': 2,
+      'tersedia': true,
+    };
+  }
+
   Json get daily => {
     'id': uid,
     'layananId': uid,

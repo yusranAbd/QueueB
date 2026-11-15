@@ -82,6 +82,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Dikunci agar analyze tidak gagal saat stable baru men-deprecate API.
+          flutter-version: 3.47.5
           cache: true
 
       - name: Flutter version
