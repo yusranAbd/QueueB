@@ -23,6 +23,11 @@ build/
 **/*.jks
 **/*.keystore
 
+# Firebase (push FCM): konfigurasi proyek dan kunci service account
+**/google-services.json
+*firebase-admin*.json
+*firebase-adminsdk*.json
+
 # =========================
 # Node / NestJS
 # =========================

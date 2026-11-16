@@ -92,6 +92,7 @@ model Pengguna {
   peristiwaAntrean PeristiwaAntrean[]
   sesiPengguna     SesiPengguna[]
   notifikasi       Notifikasi[]
+  perangkatPush    PerangkatPush[]
 
   @@map("pengguna")
 }
@@ -285,11 +286,30 @@ model SesiPengguna {
   dicabutPada      DateTime? @map("dicabut_pada") @db.Timestamptz(6)
   dibuatPada       DateTime  @default(now()) @map("dibuat_pada") @db.Timestamptz(6)
 
-  pengguna Pengguna @relation(fields: [penggunaId], references: [id])
+  pengguna      Pengguna        @relation(fields: [penggunaId], references: [id])
+  perangkatPush PerangkatPush[]
 
   @@index([penggunaId])
   @@index([kedaluwarsaPada])
   @@map("sesi_pengguna")
+}
+
+// Token FCM terikat ke sesi login: sesi dicabut/kedaluwarsa = push berhenti.
+model PerangkatPush {
+  id             String   @id @default(uuid()) @db.Uuid
+  penggunaId     String   @map("pengguna_id") @db.Uuid
+  sesiPenggunaId String   @map("sesi_pengguna_id") @db.Uuid
+  token          String   @unique @db.VarChar(4096)
+  platform       String   @db.VarChar(16)
+  dibuatPada     DateTime @default(now()) @map("dibuat_pada") @db.Timestamptz(6)
+  diperbaruiPada DateTime @default(now()) @updatedAt @map("diperbarui_pada") @db.Timestamptz(6)
+
+  pengguna     Pengguna     @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+  sesiPengguna SesiPengguna @relation(fields: [sesiPenggunaId], references: [id], onDelete: Cascade)
+
+  @@index([penggunaId, diperbaruiPada])
+  @@index([sesiPenggunaId])
+  @@map("perangkat_push")
 }
 
 model Notifikasi {
@@ -302,6 +322,8 @@ model Notifikasi {
   pesan          String          @db.Text
   dibacaPada     DateTime?       @map("dibaca_pada") @db.Timestamptz(6)
   dibuatPada     DateTime        @default(now()) @map("dibuat_pada") @db.Timestamptz(6)
+  // Diisi dispatcher push saat baris diklaim (terkirim, dilewati, atau FCM nonaktif).
+  pushDiprosesPada DateTime?     @map("push_diproses_pada") @db.Timestamptz(6)
 
   pengguna     Pengguna      @relation(fields: [penggunaId], references: [id])
   tiketAntrean TiketAntrean? @relation(fields: [tiketAntreanId], references: [id])

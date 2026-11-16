@@ -7,6 +7,9 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'src/api.dart';
 import 'src/app.dart';
 import 'src/config.dart';
+import 'src/push/push_messaging_firebase.dart'
+    if (dart.library.js_interop) 'src/push/push_messaging_stub.dart';
+import 'src/push/push_registrar.dart';
 import 'src/session_store.dart';
 
 void main() {
@@ -19,5 +22,9 @@ void main() {
     sessionStore: platformSessionStore('${config.apiBase}'),
   );
   unawaited(api.restoreSession().catchError((Object _) {}));
+  // Push FCM hanya Android; tanpa google-services.json aplikasi tetap normal.
+  unawaited(
+    PushRegistrar(api: api, messaging: createPlatformPushMessaging()).start(),
+  );
   runApp(QueueBApp(api: api));
 }

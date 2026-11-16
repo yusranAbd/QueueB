@@ -2123,7 +2123,19 @@ Scheduler `ReservasiService` (saat modul diinisialisasi, lalu setiap 60 detik) m
 
 Trigger notifikasi membedakan sumber `DILEWATI`: peristiwa `AUTO_EXPIRE` menghasilkan judul **Tiket kedaluwarsa** dengan pesan bahwa tanggal pelayanan sudah berlalu dan pasien dapat membuat reservasi baru, sedangkan SKIP oleh petugas tetap **Nomor antrean dilewati** dengan arahan menghubungi petugas. Jenis notifikasi keduanya tetap `PERUBAHAN_STATUS`. Notifikasi yang sudah terbit sebelum migration `20261112_notifikasi_tiket_kedaluwarsa` tidak ditulis ulang.
 
-Tombol notifikasi Beranda memakai inbox ini dan feed pasien existing, termasuk invalidasi TIKET, polling fallback dan resume. Ini notifikasi dalam aplikasi, bukan push ketika aplikasi ditutup. Setiap pembacaan memeriksa scope akun; hasil request lama dan dialog dibersihkan saat sesi berubah.
+Tombol notifikasi Beranda memakai inbox ini dan feed pasien existing, termasuk invalidasi TIKET, polling fallback dan resume. Inbox ini tetap sumber kebenaran; sejak 16 November 2026 setiap notifikasi baru juga disalin sebagai push FCM ke Android pasien (lihat bagian Push FCM). Setiap pembacaan memeriksa scope akun; hasil request lama dan dialog dibersihkan saat sesi berubah.
+
+### Push FCM pasien Android — 16 November 2026
+
+Push adalah salinan *best effort* dari baris `notifikasi`; trigger `queueb_notifikasi_peristiwa` tidak berubah dan inbox tetap sumber kebenaran. Hanya Android; Web tetap memakai inbox dan Socket.IO. Panduan konfigurasi: `docs/setup/FIREBASE_PUSH.md`.
+
+`PUT /perangkat-push` (hanya USER, throttle 10/menit) body `{token, platform: "ANDROID"}` → `{terdaftar: true}`. Token adalah registration token FCM (ASCII tercetak, maksimal 4.096 karakter). Upsert berdasarkan token: token yang sudah dimiliki akun/sesi lain dipindahkan ke pengguna dan sesi JWT saat ini (satu perangkat satu penerima). Maksimal 5 token per pengguna; yang terlama diperbarui dihapus. `DELETE /perangkat-push` body `{token}` → `{dihapus: true}`; hanya menghapus token milik JWT, dan respons sama walau token tidak ada. Peran lain menerima 403.
+
+Token terikat ke `sesi_pengguna` (klaim `sid`). Push hanya dikirim ke token dengan sesi yang belum dicabut, belum kedaluwarsa, dan pengguna aktif. Karena itu logout, reset/ubah sandi yang mencabut sesi, dan penonaktifan akun menghentikan push walau klien gagal memanggil DELETE. Refresh token tidak mengganti `sid`, jadi tidak perlu mendaftar ulang.
+
+Dispatcher di API mengklaim notifikasi baru setiap 2 detik (batch 100, `FOR UPDATE SKIP LOCKED`, aman untuk beberapa instance) dan menandai `push_diproses_pada` sebelum mengirim. Akibatnya setiap notifikasi dikirim **paling banyak sekali**; kegagalan FCM tidak diulang dan tidak memengaruhi transaksi antrean. Notifikasi berumur lebih dari 10 menit, atau yang terbit saat FCM nonaktif (`FIREBASE_SERVICE_ACCOUNT_PATH` kosong), hanya ditandai tanpa dikirim. Notifikasi yang terbit sebelum migration `20261116_push_notifikasi_fcm` ditandai sudah diproses (tanpa push historis). Token yang ditolak FCM sebagai tidak terdaftar/tidak valid dihapus.
+
+Isi push: `notification.title` = judul, `notification.body` = pesan notifikasi (nomor · layanan · ruang; tanpa nama pasien), `data = {notifikasiId, tiketAntreanId, jenis}`, prioritas Android tinggi pada kanal `queueb_antrean`. Mengetuk push membuka inbox notifikasi pasien.
 
 ### Laporan ADMIN
 

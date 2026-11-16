@@ -49,4 +49,25 @@ describe('validateEnvironment, konfigurasi frontend dan timezone', () => {
     const config = validateEnvironment({ ...dasar, SERVICE_TIME_ZONE: 'Asia/Jayapura' });
     expect(config.SERVICE_TIME_ZONE).toBe('Asia/Jayapura');
   });
+
+  it('push FCM opsional: kosong berarti nonaktif', () => {
+    expect(validateEnvironment(dasar).FIREBASE_SERVICE_ACCOUNT_PATH).toBe('');
+  });
+
+  it('menolak path service account Firebase yang tidak ada', () => {
+    expect(() =>
+      validateEnvironment({
+        ...dasar,
+        FIREBASE_SERVICE_ACCOUNT_PATH: 'tidak-ada/firebase-admin.json',
+      }),
+    ).toThrow('FIREBASE_SERVICE_ACCOUNT_PATH');
+  });
+
+  it('menerima path service account Firebase yang ada', () => {
+    const config = validateEnvironment({
+      ...dasar,
+      FIREBASE_SERVICE_ACCOUNT_PATH: ` ${__filename} `,
+    });
+    expect(config.FIREBASE_SERVICE_ACCOUNT_PATH).toBe(__filename);
+  });
 });

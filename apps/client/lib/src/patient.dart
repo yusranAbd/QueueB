@@ -220,6 +220,31 @@ class _PatientPageState extends State<PatientPage> {
     reservations = PatientReservationsCubit(repository);
     repository.addListener(_scopeChanged);
     unawaited(load().then((_) => _hydrateRoute()));
+    widget.api.pushTap.addListener(_openPushTap);
+    // Tap notifikasi yang membuka aplikasi bisa tiba sebelum portal dibangun.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPushTap());
+  }
+
+  bool _notificationsOpen = false;
+
+  Future<void> _openNotifications() async {
+    if (_notificationsOpen) return;
+    _notificationsOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => PatientNotificationsDialog(repository: repository),
+      );
+    } finally {
+      _notificationsOpen = false;
+    }
+  }
+
+  /// Push FCM yang diketuk membuka inbox notifikasi existing.
+  void _openPushTap() {
+    if (!mounted || widget.api.pushTap.value == null) return;
+    widget.api.pushTap.value = null;
+    unawaited(_openNotifications());
   }
 
   @override
@@ -665,6 +690,7 @@ class _PatientPageState extends State<PatientPage> {
 
   @override
   void dispose() {
+    widget.api.pushTap.removeListener(_openPushTap);
     reservations.close();
     booking.close();
     overviewCubit.close();
@@ -1395,12 +1421,7 @@ class _PatientPageState extends State<PatientPage> {
                             _go('/patient/profile');
                           }
                         },
-                        onNotifications: () => showDialog<void>(
-                          context: context,
-                          builder: (c) => PatientNotificationsDialog(
-                            repository: repository,
-                          ),
-                        ),
+                        onNotifications: _openNotifications,
                       )
                     : null,
                 acceptNestedScrolls: tab == 0,

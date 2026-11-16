@@ -23,6 +23,7 @@ import { DokterModule } from './dokter/dokter.module';
 import { JadwalPraktikModule } from './jadwal-praktik/jadwal-praktik.module';
 import { SlotPraktikModule } from './slot-praktik/slot-praktik.module';
 import { NotifikasiModule } from './notifikasi/notifikasi.module';
+import { PushModule } from './push/push.module';
 import { LaporanModule } from './laporan/laporan.module';
 
 @Module({
@@ -60,6 +61,7 @@ import { LaporanModule } from './laporan/laporan.module';
     QueueModule,
     RealtimeModule,
     NotifikasiModule,
+    PushModule,
     LaporanModule,
   ],
 })

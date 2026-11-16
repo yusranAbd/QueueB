@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+
 export function validateEnvironment(
   config: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -133,6 +135,20 @@ export function validateEnvironment(
   }
 
   // =========================
+  // FIREBASE PUSH (OPSIONAL)
+  // =========================
+  const rawFirebasePath = config.FIREBASE_SERVICE_ACCOUNT_PATH;
+  if (rawFirebasePath !== undefined && typeof rawFirebasePath !== 'string') {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_PATH harus berupa path file');
+  }
+  const firebaseServiceAccountPath = rawFirebasePath?.trim() ?? '';
+  if (firebaseServiceAccountPath && !existsSync(firebaseServiceAccountPath)) {
+    throw new Error(
+      'FIREBASE_SERVICE_ACCOUNT_PATH menunjuk file yang tidak ditemukan',
+    );
+  }
+
+  // =========================
   // FINAL CONFIG
   // =========================
   return {
@@ -148,5 +164,6 @@ export function validateEnvironment(
     JWT_REFRESH_EXPIRES_IN: jwtRefreshExpiresIn,
     CORS_ALLOWED_ORIGINS: [...new Set(origins)],
     SERVICE_TIME_ZONE: serviceTimeZone,
+    FIREBASE_SERVICE_ACCOUNT_PATH: firebaseServiceAccountPath,
   };
 }

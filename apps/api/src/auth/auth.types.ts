@@ -19,4 +19,6 @@ export interface AuthenticatedUser {
   nama: string;
   email: string;
   peran: PeranPengguna;
+  /** ID sesi_pengguna dari klaim `sid`; diisi oleh JwtStrategy. */
+  sesiId?: string;
 }

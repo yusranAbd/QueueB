@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'app_brand.dart';
 import 'config.dart';
 import 'display_client.dart';
+import 'push/push_messaging.dart';
 import 'session_store.dart';
 
 enum SessionPhase { ready, restoring, offline, storageError, signingOut }
@@ -38,6 +39,14 @@ class QueueApi extends ChangeNotifier {
   String? sessionMessage;
   Json? user;
   String? accessToken;
+
+  /// Dijalankan sebelum logout selagi sesi masih berlaku (misalnya untuk
+  /// menghapus token push perangkat). Kegagalannya tidak menahan logout.
+  Future<void> Function()? beforeLogout;
+  bool _beforeLogoutRunning = false;
+
+  /// Notifikasi push yang diketuk dan belum dibuka portal pasien.
+  final ValueNotifier<PushTap?> pushTap = ValueNotifier<PushTap?>(null);
   String? _avatarKey;
   Future<Uint8List?>? _avatarFuture;
   String? _refreshToken;
@@ -541,7 +550,19 @@ class QueueApi extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    if (sessionPhase == SessionPhase.signingOut) return;
+    if (sessionPhase == SessionPhase.signingOut || _beforeLogoutRunning) return;
+    final hook = beforeLogout;
+    if (hook != null) {
+      _beforeLogoutRunning = true;
+      try {
+        await hook();
+      } catch (_) {
+        // Pembersihan tambahan bersifat best effort.
+      } finally {
+        _beforeLogoutRunning = false;
+      }
+      if (sessionPhase == SessionPhase.signingOut) return;
+    }
     _logoutGeneration = _generation;
     _logoutToken = _refreshToken;
     final pending = _refreshing;
@@ -618,6 +639,7 @@ class QueueApi extends ChangeNotifier {
     _renew?.cancel();
     _client.close();
     if (!identical(_client, _displayClient)) _displayClient.close();
+    pushTap.dispose();
     super.dispose();
   }
 }
